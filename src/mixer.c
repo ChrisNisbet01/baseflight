@@ -485,24 +485,26 @@ void mixTable(void)
         if (motor[i] > maxMotor)
             maxMotor = motor[i];
     for (i = 0; i < numberMotor; i++) {
-        if (maxMotor > mcfg.maxthrottle)     // this is a way to still have good gyro corrections if at least one motor reaches its max.
-            motor[i] -= maxMotor - mcfg.maxthrottle;
-        if (feature(FEATURE_3D)) {
-            if ((rcData[THROTTLE]) > mcfg.midrc) {
-                motor[i] = constrain(motor[i], mcfg.deadband3d_high, mcfg.maxthrottle);
+        if (f.ARMED) {
+            if (maxMotor > mcfg.maxthrottle)     // this is a way to still have good gyro corrections if at least one motor reaches its max.
+                motor[i] -= maxMotor - mcfg.maxthrottle;
+            if (feature(FEATURE_3D)) {
+                if ((rcData[THROTTLE]) > mcfg.midrc) {
+                    motor[i] = constrain(motor[i], mcfg.deadband3d_high, mcfg.maxthrottle);
+                } else {
+                    motor[i] = constrain(motor[i], mcfg.mincommand, mcfg.deadband3d_low);
+                }
             } else {
-                motor[i] = constrain(motor[i], mcfg.mincommand, mcfg.deadband3d_low);
-            }
-        } else {
-            motor[i] = constrain(motor[i], mcfg.minthrottle, mcfg.maxthrottle);
-            if ((rcData[THROTTLE]) < mcfg.mincheck) {
-                if (!feature(FEATURE_MOTOR_STOP))
-                    motor[i] = mcfg.minthrottle;
-                else
-                    motor[i] = mcfg.mincommand;
+                motor[i] = constrain(motor[i], mcfg.minthrottle, mcfg.maxthrottle);
+                if ((rcData[THROTTLE]) < mcfg.mincheck) {
+                    if (!feature(FEATURE_MOTOR_STOP))
+                        motor[i] = mcfg.minthrottle;
+                    else
+                        motor[i] = mcfg.mincommand;
+                }
             }
         }
-        if (!f.ARMED) {
+        else {
             motor[i] = motor_disarmed[i];
         }
     }
