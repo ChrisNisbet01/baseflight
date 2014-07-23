@@ -25,6 +25,9 @@ void ECHO_EXTI_IRQHandler(void)
 {
     static uint32_t timing_start;
     uint32_t timing_stop;
+
+    EXTI_ClearITPendingBit(exti_line);
+
     if (digitalIn(GPIOB, echo_pin) != 0) {
         timing_start = micros();
     } else {
@@ -42,8 +45,6 @@ void ECHO_EXTI_IRQHandler(void)
             *distance_ptr = distance ;
         }
     }
-
-    EXTI_ClearITPendingBit(exti_line);
 }
 
 void EXTI1_IRQHandler(void)
@@ -115,7 +116,7 @@ void hcsr04_get_distance(volatile int32_t *distance)
 
     if (current_time < (last_measurement + 60)) {
         // the repeat interval of trig signal should be greater than 60ms
-        // to avoid interference between connective measurements.
+        // to avoid interference between consecutive measurements.
         return;
     }
 
