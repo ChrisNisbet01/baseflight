@@ -847,19 +847,20 @@ void loop(void)
         currentTime = micros();
         cycleTime = (int32_t)(currentTime - previousTime);
         previousTime = currentTime;
-        // non IMU critical, temeperatur, serialcom
+        // non IMU critical, temperature, serialcom
          annexCode();
 #ifdef MAG
         if (sensors(SENSOR_MAG)) {
             if (abs(rcCommand[YAW]) < 70 && f.MAG_MODE) {
-                int16_t dif = heading - magHold;
-                if (dif <= -180)
-                    dif += 360;
-                if (dif >= +180)
-                    dif -= 360;
-                dif *= -mcfg.yaw_control_direction;
-                if (f.SMALL_ANGLE)
+                if (f.SMALL_ANGLE) {
+                    int16_t dif = heading - magHold;
+                    if (dif <= -180)    // XXX - should be < -180?
+                        dif += 360;
+                    if (dif >= +180)    // XXX - Should be > 180?
+                        dif -= 360;
+                    dif *= -mcfg.yaw_control_direction;
                     rcCommand[YAW] -= dif * cfg.P8[PIDMAG] / 30;    // 18 deg
+                }
             } else
                 magHold = heading;
         }
