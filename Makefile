@@ -42,6 +42,7 @@ BIN_DIR		 = $(ROOT)/obj
 
 # Source files common to all targets
 COMMON_SRC	 = buzzer.c \
+           pid.c \
 		   cli.c \
 		   config.c \
 		   imu.c \
