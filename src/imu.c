@@ -252,7 +252,12 @@ static void getEstimatedAttitude(void)
     for (axis = 0; axis < 3; axis++) {
         deltaGyroAngle[axis] = gyroADC[axis] * scale;
         if (cfg.acc_lpf_factor > 0) {
+#if 0
             accLPF[axis] = accLPF[axis] * (1.0f - (1.0f / cfg.acc_lpf_factor)) + accADC[axis] * (1.0f / cfg.acc_lpf_factor);
+#else
+            float tempf = 1.0f / cfg.acc_lpf_factor;
+            accLPF[axis] = accLPF[axis] * (1.0f - tempf) + accADC[axis] * tempf;
+#endif
             accSmooth[axis] = accLPF[axis];
         } else {
             accSmooth[axis] = accADC[axis];
