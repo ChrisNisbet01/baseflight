@@ -21,7 +21,7 @@ typedef struct pid_t{
     int                     previous_error_valid;   /* used to determine if differential term can be calculated */
     float                   previous_error[2];      /* we save the two previous input values so that we can calculate the change in input */
 
-    float                   integral_error;         /* used to store the current integral error */
+    float                   integral_sum;         /* used to store the current integral sum */
 
     float                   output_signal;
 } pid_t;

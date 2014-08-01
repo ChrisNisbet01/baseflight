@@ -3,7 +3,7 @@
 void pid_reset(pid_t * const pid)
 {
     // set prev and integrated error to zero
-    pid->integral_error = 0.0f;
+    pid->integral_sum = 0.0f;
     pid->previous_error_valid = 0;
     pid->previous_error[0] = pid->previous_error[1] = 0.0f;
 }
@@ -36,15 +36,18 @@ void pid_update(pid_t * const pid, float input, float setpoint, float dt)
     p_term = (pid->proportional_gain * error);
 
     // integration with windup limiting
-    pid->integral_error += (error * dt);
+    pid->integral_sum += (error * dt);
 
-    if (pid->integral_error < -pid->integral_limit)
-        pid->integral_error = -pid->integral_limit;
-    else if (pid->integral_error > pid->integral_limit)
-        pid->integral_error = pid->integral_limit;
+    if (pid->integral_limit != 0.0f)
+    {
+        if (pid->integral_sum < -pid->integral_limit)
+            pid->integral_sum = -pid->integral_limit;
+        else if (pid->integral_sum > pid->integral_limit)
+            pid->integral_sum = pid->integral_limit;
+    }
  
     // scaling
-    i_term = pid->integral_gain * pid->integral_error;
+    i_term = pid->integral_gain * pid->integral_sum;
 
     /* 
         limit integral error value to difference between limits and proportional term.
@@ -53,7 +56,7 @@ void pid_update(pid_t * const pid, float input, float setpoint, float dt)
     if ( p_term >= pid->output_maximum )
     {
         i_term = 0;
-        pid->integral_error = 0.0f;
+        pid->integral_sum = 0.0f;
     }
     else if ( p_term > 0.0f && i_term > 0.0f )
     {
@@ -63,13 +66,13 @@ void pid_update(pid_t * const pid, float input, float setpoint, float dt)
         {
             i_term = temp;
             /* update the integral error storage with the limited value */
-            pid->integral_error = i_term / pid->integral_gain;  /* pid->integral_gain must be != 0 for i_term to be != 0 */
+            pid->integral_sum = i_term / pid->integral_gain;  /* pid->integral_gain must be != 0 for i_term to be != 0 */
         }
     }
     if ( p_term <= pid->output_minimum )
     {
         i_term = 0;
-        pid->integral_error = 0.0f;
+        pid->integral_sum = 0.0f;
     }
     else if ( p_term < 0.0f && i_term < 0.0f )
     {
@@ -79,7 +82,7 @@ void pid_update(pid_t * const pid, float input, float setpoint, float dt)
         {
             i_term = temp;
             /* update the integral error storage with the limited value */
-            pid->integral_error = i_term / pid->integral_gain;  /* pid->integral_gain must be != 0 for i_term to be != 0 */
+            pid->integral_sum = i_term / pid->integral_gain;  /* pid->integral_gain must be != 0 for i_term to be != 0 */
         }
     }
     
