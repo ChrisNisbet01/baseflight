@@ -1,7 +1,7 @@
 #include "board.h"
 #include "mw.h"
 
-int16_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
+sensor_data_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
 int32_t accSum[3];
 uint32_t accTimeSum = 0;        // keep track for integration of acc
 int accSumCount = 0;
@@ -26,8 +26,8 @@ float throttleAngleScale;
 // **************
 // gyro+acc IMU
 // **************
-int16_t gyroData[3] = { 0, 0, 0 };
-int16_t gyroZero[3] = { 0, 0, 0 };
+sensor_data_t gyroData[3] = { 0, 0, 0 };
+sensor_data_t gyroZero[3] = { 0, 0, 0 };
 int16_t angle[2] = { 0, 0 };     // absolute angle inclination in multiple of 0.1 degree    180 deg = 1800
 float anglerad[2] = { 0.0f, 0.0f };    // absolute angle inclination in radians
 
@@ -48,7 +48,7 @@ void imuInit(void)
 
 void computeIMU(void)
 {
-    static int16_t gyroYawSmooth = 0;
+    static sensor_data_t gyroYawSmooth = 0;
 
     Gyro_getADC();
     if (sensors(SENSOR_ACC)) {

@@ -9,7 +9,7 @@
 extern uint16_t acc_1G;
 
 static void bma280Init(sensor_align_e align);
-static void bma280Read(int16_t *accelData);
+static void bma280Read(sensor_data_t *accelData);
 
 static sensor_align_e accAlign = CW0_DEG;
 
@@ -38,10 +38,10 @@ static void bma280Init(sensor_align_e align)
         accAlign = align;
 }
 
-static void bma280Read(int16_t *accelData)
+static void bma280Read(sensor_data_t *accelData)
 {
     uint8_t buf[6];
-    int16_t data[3];
+    sensor_data_t data[3];
 
     i2cRead(BMA280_ADDRESS, BMA280_ACC_X_LSB, 6, buf);
 

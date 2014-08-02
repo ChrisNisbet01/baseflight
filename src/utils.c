@@ -58,18 +58,18 @@ void initBoardAlignment(void)
     boardRotation[2][2] = cosy * cosx;
 }
 
-void alignBoard(int16_t *vec)
+void alignBoard(sensor_data_t *vec)
 {
-    int16_t x = vec[X];
-    int16_t y = vec[Y];
-    int16_t z = vec[Z];
+    sensor_align_e x = vec[X];
+    sensor_align_e y = vec[Y];
+    sensor_align_e z = vec[Z];
 
     vec[X] = lrintf(boardRotation[0][0] * x + boardRotation[1][0] * y + boardRotation[2][0] * z);
     vec[Y] = lrintf(boardRotation[0][1] * x + boardRotation[1][1] * y + boardRotation[2][1] * z);
     vec[Z] = lrintf(boardRotation[0][2] * x + boardRotation[1][2] * y + boardRotation[2][2] * z);
 }
 
-void alignSensors(int16_t *src, int16_t *dest, uint8_t rotation)
+void alignSensors(sensor_data_t *src, sensor_data_t *dest, sensor_align_e rotation)
 {
     switch (rotation) {
         case CW0_DEG:

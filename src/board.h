@@ -18,6 +18,8 @@
 #include "stm32f10x_conf.h"
 #include "core_cm3.h"
 
+#include "sensor_align.h"
+
 #ifndef __CC_ARM
 // only need this garbage on gcc
 #define USE_LAME_PRINTF
@@ -128,18 +130,6 @@ typedef enum {
     Z
 } sensor_axis_e;
 
-typedef enum {
-    ALIGN_DEFAULT = 0,                                      // driver-provided alignment
-    CW0_DEG = 1,
-    CW90_DEG = 2,
-    CW180_DEG = 3,
-    CW270_DEG = 4,
-    CW0_DEG_FLIP = 5,
-    CW90_DEG_FLIP = 6,
-    CW180_DEG_FLIP = 7,
-    CW270_DEG_FLIP = 8
-} sensor_align_e;
-
 enum {
     GYRO_UPDATED = 1 << 0,
     ACC_UPDATED = 1 << 1,
@@ -147,16 +137,8 @@ enum {
     TEMP_UPDATED = 1 << 3
 };
 
-typedef struct sensor_data_t {
-    int16_t gyro[3];
-    int16_t acc[3];
-    int16_t mag[3];
-    float temperature;
-    int updated;
-} sensor_data_t;
-
 typedef void (*sensorInitFuncPtr)(sensor_align_e align);   // sensor init prototype
-typedef void (*sensorReadFuncPtr)(int16_t *data);          // sensor read and align prototype
+typedef void (*sensorReadFuncPtr)(sensor_data_t *data);    // sensor read and align prototype
 typedef void (*baroOpFuncPtr)(void);                       // baro start operation
 typedef void (*baroCalculateFuncPtr)(int32_t *pressure, int32_t *temperature);             // baro calculation (filled params are pressure and temperature)
 typedef void (*serialReceiveCallbackPtr)(uint16_t data);   // used by serial drivers to return frames to app

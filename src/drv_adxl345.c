@@ -32,7 +32,7 @@
 extern uint16_t acc_1G;
 
 static void adxl345Init(sensor_align_e align);
-static void adxl345Read(int16_t *accelData);
+static void adxl345Read(sensor_data_t *accelData);
 
 static bool useFifo = false;
 static sensor_align_e accAlign = CW270_DEG;
@@ -77,26 +77,26 @@ static void adxl345Init(sensor_align_e align)
         accAlign = align;
 }
 
-uint8_t acc_samples = 0;
+unsigned int acc_samples = 0;
 
-static void adxl345Read(int16_t *accelData)
+static void adxl345Read(sensor_data_t *accelData)
 {
     uint8_t buf[8];
-    int16_t data[3];
+    sensor_data_t data[3];
 
     if (useFifo) {
         int32_t x = 0;
         int32_t y = 0;
         int32_t z = 0;
-        uint8_t i = 0;
-        uint8_t samples_remaining;
+        unsigned int i = 0;
+        unsigned int samples_remaining;
 
         do {
             i++;
             i2cRead(ADXL345_ADDRESS, ADXL345_DATA_OUT, 8, buf);
-            x += (int16_t)(buf[0] + (buf[1] << 8));
-            y += (int16_t)(buf[2] + (buf[3] << 8));
-            z += (int16_t)(buf[4] + (buf[5] << 8));
+            x += (sensor_data_t)(buf[0] + (buf[1] << 8));
+            y += (sensor_data_t)(buf[2] + (buf[3] << 8));
+            z += (sensor_data_t)(buf[4] + (buf[5] << 8));
             samples_remaining = buf[7] & 0x7F;
         } while ((i < 32) && (samples_remaining > 0));
         data[0] = x / i;

@@ -94,7 +94,7 @@ bool hmc5883lDetect(sensor_align_e align)
 void hmc5883lInit(void)
 {
     gpio_config_t gpio;
-    int16_t magADC[3];
+    sensor_data_t magADC[3];
     int i;
     int32_t xyz_total[3] = { 0, 0, 0 }; // 32 bit totals so they won't overflow.
     bool bret = true;           // Error indicator
@@ -174,10 +174,10 @@ void hmc5883lInit(void)
     }
 }
 
-void hmc5883lRead(int16_t *magData)
+void hmc5883lRead(sensor_data_t *magData)
 {
     uint8_t buf[6];
-    int16_t mag[3];
+    sensor_data_t mag[3];
 
     i2cRead(MAG_ADDRESS, MAG_DATA_REGISTER, 6, buf);
     // During calibration, magGain is 1.0, so the read returns normal non-calibrated values.

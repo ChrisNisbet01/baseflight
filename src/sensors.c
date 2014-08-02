@@ -196,9 +196,9 @@ static void ACC_Common(void)
         }
         // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
         if (calibratingA == 1) {
-            mcfg.accZero[ROLL] = (a[ROLL] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES;
-            mcfg.accZero[PITCH] = (a[PITCH] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES;
-            mcfg.accZero[YAW] = (a[YAW] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES - acc_1G;
+            mcfg.accZero[ROLL] = DIVIDE_WITH_ROUNDING(a[ROLL], CALIBRATING_ACC_CYCLES);
+            mcfg.accZero[PITCH] = DIVIDE_WITH_ROUNDING(a[PITCH], CALIBRATING_ACC_CYCLES);
+            mcfg.accZero[YAW] = DIVIDE_WITH_ROUNDING(a[YAW], CALIBRATING_ACC_CYCLES) - acc_1G;
             cfg.angleTrim[ROLL] = 0;
             cfg.angleTrim[PITCH] = 0;
             writeEEPROM(1, true);      // write accZero in EEPROM
@@ -246,9 +246,9 @@ static void ACC_Common(void)
         // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
         if (AccInflightCalibrationSavetoEEProm) {      // the copter is landed, disarmed and the combo has been done again
             AccInflightCalibrationSavetoEEProm = false;
-            mcfg.accZero[ROLL] = b[ROLL] / 50;
-            mcfg.accZero[PITCH] = b[PITCH] / 50;
-            mcfg.accZero[YAW] = b[YAW] / 50 - acc_1G;    // for nunchuk 200=1G
+            mcfg.accZero[ROLL] = DIVIDE_WITH_ROUNDING(b[ROLL], 50);
+            mcfg.accZero[PITCH] = DIVIDE_WITH_ROUNDING(b[PITCH], 50);
+            mcfg.accZero[YAW] = DIVIDE_WITH_ROUNDING(b[YAW], 50) - acc_1G;    // for nunchuk 200=1G
             cfg.angleTrim[ROLL] = 0;
             cfg.angleTrim[PITCH] = 0;
             writeEEPROM(1, true);          // write accZero in EEPROM
@@ -375,7 +375,8 @@ static void GYRO_Common(void)
                     g[0] = g[1] = g[2] = 0;
                     continue;
                 }
-                gyroZero[axis] = (g[axis] + (CALIBRATING_GYRO_CYCLES / 2)) / CALIBRATING_GYRO_CYCLES;
+                gyroZero[axis] = DIVIDE_WITH_ROUNDING( g[axis], CALIBRATING_GYRO_CYCLES );
+
                 blinkLED(10, 15, 1);
             }
         }
@@ -407,8 +408,8 @@ void Mag_init(void)
 int Mag_getADC(void)
 {
     static uint32_t t, tCal = 0;
-    static int16_t magZeroTempMin[3];
-    static int16_t magZeroTempMax[3];
+    static sensor_data_t magZeroTempMin[3];
+    static sensor_data_t magZeroTempMax[3];
     uint32_t axis;
 
     if ((int32_t)(currentTime - t) < 0)
