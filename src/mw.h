@@ -124,11 +124,33 @@ enum {
 #define THR_HI (2 << (2 * THROTTLE))
 
 // Custom mixer data per motor
+
+/*
+    If MIXER_USES_INTEGER_MATH is defined, integer maths is used in the motor mixes.
+    The values stored in throttle, roll, pitch, yaw are the same as the float values multiplied by 1000,
+    and are rounded to the nearest integer.
+    so 0.866025f becomes 866, -0.666667f becomes -667 etc.
+    After these numbers are used during mixing, the results of the multiplication are then divided by 1000.
+    As the output values are all in the range 1000->2000 (i.e. 0.1% steps at best), there is little to no difference
+    in calculated value between using integers and floats.
+    There is a vast difference in CPU load though. A test indicated that doing the maths using floats takes around 5 times longer
+    than if integers are used.
+    Note also that the way the maths is done with floats, the results of the multiplications are truncated when converted back to integers,
+    not rounded.
+*/
+
 typedef struct motorMixer_t {
+#if defined(MIXER_USES_INTEGER_MATH)
+    int32_t throttle;
+    int32_t roll;
+    int32_t pitch;
+    int32_t yaw;
+#else
     float throttle;
     float roll;
     float pitch;
     float yaw;
+#endif    
 } motorMixer_t;
 
 // Custom mixer configuration

@@ -20,7 +20,7 @@ TARGET		?= NAZE
 # Compile-time options
 OPTIONS		?=
 
-# Debugger optons, must be empty or GDB
+# Debugger options, must be empty or GDB
 DEBUG ?=
 
 # Serial port/Device for flashing
