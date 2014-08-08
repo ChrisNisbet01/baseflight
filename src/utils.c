@@ -120,6 +120,13 @@ void alignSensors(int16_t *src, int16_t *dest, uint8_t rotation)
         alignBoard(dest);
 }
 
+int32_t divide_with_rounding( int32_t value, uint32_t divisor )
+{
+    int32_t d2 = divisor/2;
+    
+    return (value < 0) ? (value-d2)/divisor : (value+d2)/divisor;
+}
+
 #ifdef PROD_DEBUG
 void productionDebug(void)
 {
