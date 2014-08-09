@@ -124,7 +124,7 @@ int32_t divideWithRounding( int32_t value, uint32_t divisor )
 {
     int32_t d2 = divisor/2;
     
-    return (value < 0) ? (value-d2)/divisor : (value+d2)/divisor;
+    return ((value < 0) ? (value-d2)/divisor : (value+d2)/divisor);
 }
 
 long baseflightLrintf(float x)
