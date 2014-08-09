@@ -13,7 +13,7 @@
     divisor: The value in angle_degrees is divided by this value
         before calculating the sine.
     returns: The sine of the angle. The range of the value is
-        a fraction of SINE_RANGE represeting the sine of the angle.
+        a fraction of SINE_RANGE representing the sine of the angle.
         so the return value for the sine of -90 degrees would be -SINE_RANGE.
 */
 int sini( int angle_degrees, int divisor );
@@ -28,8 +28,8 @@ int sini( int angle_degrees, int divisor );
     divisor: The value in angle_degrees is divided by this value
         before calculating the sine.
     returns: The cosine of the angle. The range of the value is
-        a fraction of SINE_RANGE represeting the sine of the angle.
-        so the return value for the sine of 90 degrees would be SINE_RANGE.
+        a fraction of SINE_RANGE representing the cosine of the angle.
+        so the return value for the cosine of 90 degrees would be SINE_RANGE.
 */
 int cosi( int angle_degrees, int divisor );
 
