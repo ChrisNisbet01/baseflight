@@ -2,7 +2,15 @@
 
 //#define DIVIDE_WITH_ROUNDING( n, d ) ((n) < 0 ? ((n)-((d)/2))/(d) : ((n)+((d)/2))/(d))
 #define DIVIDE_WITH_ROUNDING( n, d ) divide_with_rounding( (n), (d) )
-int32_t divide_with_rounding( int32_t value, uint32_t divisor );
+int32_t divideWithRounding( int32_t value, uint32_t divisor );
+
+#if !defined(USE_STD_LRINTF)
+#define LRINTF(x) baseflightLrintf(x)  
+long baseflightLrintf(float x);
+#else
+#define LRINTF(x) lrintf(x)  
+#endif
+
 
 int constrain(int amt, int low, int high);
 // sensor orientation

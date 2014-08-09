@@ -64,9 +64,9 @@ void alignBoard(int16_t *vec)
     int16_t y = vec[Y];
     int16_t z = vec[Z];
 
-    vec[X] = lrintf(boardRotation[0][0] * x + boardRotation[1][0] * y + boardRotation[2][0] * z);
-    vec[Y] = lrintf(boardRotation[0][1] * x + boardRotation[1][1] * y + boardRotation[2][1] * z);
-    vec[Z] = lrintf(boardRotation[0][2] * x + boardRotation[1][2] * y + boardRotation[2][2] * z);
+    vec[X] = LRINTF(boardRotation[0][0] * x + boardRotation[1][0] * y + boardRotation[2][0] * z);
+    vec[Y] = LRINTF(boardRotation[0][1] * x + boardRotation[1][1] * y + boardRotation[2][1] * z);
+    vec[Z] = LRINTF(boardRotation[0][2] * x + boardRotation[1][2] * y + boardRotation[2][2] * z);
 }
 
 void alignSensors(int16_t *src, int16_t *dest, uint8_t rotation)
@@ -120,11 +120,16 @@ void alignSensors(int16_t *src, int16_t *dest, uint8_t rotation)
         alignBoard(dest);
 }
 
-int32_t divide_with_rounding( int32_t value, uint32_t divisor )
+int32_t divideWithRounding( int32_t value, uint32_t divisor )
 {
     int32_t d2 = divisor/2;
     
     return (value < 0) ? (value-d2)/divisor : (value+d2)/divisor;
+}
+
+long baseflightLrintf(float x)
+{
+    return (x > 0) ? x + 0.5f : x - 0.5f;
 }
 
 #ifdef PROD_DEBUG

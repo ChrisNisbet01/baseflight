@@ -38,7 +38,7 @@ static void getEstimatedAttitude(void);
 
 void imuInit(void)
 {
-    smallAngle = lrintf(acc_1G * cosf(RAD * cfg.small_angle));
+    smallAngle = LRINTF(acc_1G * cosf(RAD * cfg.small_angle));
     accVelScale = 9.80665f / acc_1G / 10000.0f;
     throttleAngleScale = (1800.0f / M_PI) * (900.0f / cfg.throttle_correction_angle);
     
@@ -203,10 +203,10 @@ void acc_calc(uint32_t deltaT)
 
     // apply Deadband to reduce integration drift and vibration influence and
     // sum up Values for later integration to get velocity and distance
-    accSum[X] += applyDeadband(lrintf(accel_ned.V.X), cfg.accxy_deadband);
-    accSum[Y] += applyDeadband(lrintf(accel_ned.V.Y), cfg.accxy_deadband);
-    accSum[Z] += applyDeadband(lrintf(accz_smooth), cfg.accz_deadband);
-    
+    accSum[X] += applyDeadband(LRINTF(accel_ned.V.X), cfg.accxy_deadband);
+    accSum[Y] += applyDeadband(LRINTF(accel_ned.V.Y), cfg.accxy_deadband);
+    accSum[Z] += applyDeadband(LRINTF(accz_smooth), cfg.accz_deadband);
+
     accTimeSum += deltaT;
     accSumCount++;
 }
@@ -232,7 +232,7 @@ static int16_t calculateHeading(t_fp_vector *vec)
     float Xh = vec->A[X] * cosinePitch + vec->A[Y] * sineRoll * sinePitch + vec->A[Z] * sinePitch * cosineRoll;
     float Yh = vec->A[Y] * cosineRoll - vec->A[Z] * sineRoll;
     float hd = (atan2f(Yh, Xh) * 1800.0f / M_PI + magneticDeclination) / 10.0f;
-    head = lrintf(hd);
+    head = LRINTF(hd);
     if (head < 0)
         head += 360;
 
@@ -282,8 +282,8 @@ static void getEstimatedAttitude(void)
     // Attitude of the estimated vector
     anglerad[ROLL] = atan2f(EstG.V.Y, EstG.V.Z);
     anglerad[PITCH] = atan2f(-EstG.V.X, sqrtf(EstG.V.Y * EstG.V.Y + EstG.V.Z * EstG.V.Z));
-    angle[ROLL] = lrintf(anglerad[ROLL] * (1800.0f / M_PI));
-    angle[PITCH] = lrintf(anglerad[PITCH] * (1800.0f / M_PI));
+    angle[ROLL] = LRINTF(anglerad[ROLL] * (1800.0f / M_PI));
+    angle[PITCH] = LRINTF(anglerad[PITCH] * (1800.0f / M_PI));
 
     if (sensors(SENSOR_MAG)) {
         rotateV(&EstM.V, deltaGyroAngle);
@@ -305,10 +305,10 @@ static void getEstimatedAttitude(void)
         if (cosZ <= 0.015f) { // we are inverted, vertical or with a small angle < 0.86 deg
             throttleAngleCorrection = 0;
         } else {
-            int deg = lrintf(acosf(cosZ) * throttleAngleScale);
+            int deg = LRINTF(acosf(cosZ) * throttleAngleScale);
             if (deg > 900)
                 deg = 900;
-            throttleAngleCorrection = lrintf(cfg.throttle_correction_value * sinf(deg / (900.0f * M_PI / 2.0f))) ;
+            throttleAngleCorrection = LRINTF(cfg.throttle_correction_value * sinf(deg / (900.0f * M_PI / 2.0f))) ;
         }
 
     }
@@ -355,9 +355,9 @@ int getEstimatedAltitude(void)
 
     // calculates height from ground via baro readings
     // see: https://github.com/diydrones/ardupilot/blob/master/libraries/AP_Baro/AP_Baro.cpp#L140
-    BaroAlt_tmp = lrintf((1.0f - powf((float)(baroPressureSum / (cfg.baro_tab_size - 1)) / 101325.0f, 0.190295f)) * 4433000.0f); // in cm
+    BaroAlt_tmp = LRINTF((1.0f - powf((float)(baroPressureSum / (cfg.baro_tab_size - 1)) / 101325.0f, 0.190295f)) * 4433000.0f); // in cm
     BaroAlt_tmp -= baroGroundAltitude;
-    BaroAlt = lrintf((float)BaroAlt * cfg.baro_noise_lpf + (float)BaroAlt_tmp * (1.0f - cfg.baro_noise_lpf)); // additional LPF to reduce baro noise
+    BaroAlt = LRINTF((float)BaroAlt * cfg.baro_noise_lpf + (float)BaroAlt_tmp * (1.0f - cfg.baro_noise_lpf)); // additional LPF to reduce baro noise
 
     // calculate sonar altitude only if the sonar is facing downwards(<25deg)
     if (tiltAngle > 250)
@@ -412,7 +412,7 @@ int getEstimatedAltitude(void)
     // apply Complimentary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity).
     // By using CF it's possible to correct the drift of integrated accZ (velocity) without loosing the phase, i.e without delay
     vel = vel * cfg.baro_cf_vel + baroVel * (1 - cfg.baro_cf_vel);
-    vel_tmp = lrintf(vel);
+    vel_tmp = LRINTF(vel);
 
     // set vario
     vario = applyDeadband(vel_tmp, 5);
