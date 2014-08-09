@@ -1,8 +1,15 @@
 #include "board.h"
 #include "mw.h"
+#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
+#include "sini.h"
+#endif
 
 static bool standardBoardAlignment = true;     // board orientation correction
+#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
+static int32_t boardRotation[3][3];              // matrix
+#else
 static float boardRotation[3][3];              // matrix
+#endif
 
 int constrain(int amt, int low, int high)
 {
@@ -14,6 +21,69 @@ int constrain(int amt, int low, int high)
         return amt;
 }
 
+#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
+void initBoardAlignment(void)
+{
+    int32_t cosx, sinx, cosy, siny, cosz, sinz;
+    int32_t coszcosx, coszcosy, sinzcosx, coszsinx, sinzsinx;
+
+    // standard alignment, nothing to calculate
+    if (!mcfg.board_align_roll && !mcfg.board_align_pitch && !mcfg.board_align_yaw)
+        return;
+
+    standardBoardAlignment = false;
+
+    cosx = cosi(mcfg.board_align_roll, 1);
+    sinx = sini(mcfg.board_align_roll, 1);
+    cosy = cosi(mcfg.board_align_pitch, 1);
+    siny = sini(mcfg.board_align_pitch, 1);
+    cosz = cosi(mcfg.board_align_yaw, 1);
+    sinz = sini(mcfg.board_align_yaw, 1);
+
+    coszcosx = cosz * cosx;
+    coszcosx = DIVIDE_WITH_ROUNDING(coszcosx, SINE_RANGE);
+
+    coszcosy = cosz * cosy;
+    coszcosy = DIVIDE_WITH_ROUNDING(coszcosy, SINE_RANGE);
+
+    sinzcosx = sinz * cosx;
+    sinzcosx = DIVIDE_WITH_ROUNDING(sinzcosx, SINE_RANGE);
+
+    coszsinx = sinx * cosz;
+    coszsinx = DIVIDE_WITH_ROUNDING(coszsinx, SINE_RANGE);
+
+    sinzsinx = sinx * sinz;
+    sinzsinx = DIVIDE_WITH_ROUNDING(sinzsinx, SINE_RANGE);
+
+    // define rotation matrix
+    boardRotation[0][0] = coszcosy;
+    boardRotation[0][1] = -cosy * sinz;
+    boardRotation[0][1] = DIVIDE_WITH_ROUNDING(boardRotation[0][1], SINE_RANGE);
+    boardRotation[0][2] = siny;
+
+    boardRotation[1][0] = sinzcosx + DIVIDE_WITH_ROUNDING((coszsinx * siny),SINE_RANGE);
+    boardRotation[1][1] = coszcosx - DIVIDE_WITH_ROUNDING((sinzsinx * siny), SINE_RANGE);
+    boardRotation[1][2] = -sinx * cosy;
+    boardRotation[1][2] = DIVIDE_WITH_ROUNDING(boardRotation[1][2], SINE_RANGE);
+
+    boardRotation[2][0] = (sinzsinx) - DIVIDE_WITH_ROUNDING((coszcosx * siny), SINE_RANGE);
+    boardRotation[2][1] = (coszsinx) + DIVIDE_WITH_ROUNDING((sinzcosx * siny), SINE_RANGE);
+    boardRotation[2][2] = cosy * cosx;
+    boardRotation[2][2] = DIVIDE_WITH_ROUNDING(boardRotation[2][2], SINE_RANGE);
+
+}
+
+void alignBoard(int16_t *vec)
+{
+    int16_t x = vec[X];
+    int16_t y = vec[Y];
+    int16_t z = vec[Z];
+
+    vec[X] = DIVIDE_WITH_ROUNDING(boardRotation[0][0] * x + boardRotation[1][0] * y + boardRotation[2][0] * z, SINE_RANGE);
+    vec[Y] = DIVIDE_WITH_ROUNDING(boardRotation[0][1] * x + boardRotation[1][1] * y + boardRotation[2][1] * z, SINE_RANGE);
+    vec[Z] = DIVIDE_WITH_ROUNDING(boardRotation[0][2] * x + boardRotation[1][2] * y + boardRotation[2][2] * z, SINE_RANGE);  
+}
+#else
 void initBoardAlignment(void)
 {
     float roll, pitch, yaw;
@@ -68,6 +138,7 @@ void alignBoard(int16_t *vec)
     vec[Y] = LRINTF(boardRotation[0][1] * x + boardRotation[1][1] * y + boardRotation[2][1] * z);
     vec[Z] = LRINTF(boardRotation[0][2] * x + boardRotation[1][2] * y + boardRotation[2][2] * z);
 }
+#endif
 
 void alignSensors(int16_t *src, int16_t *dest, uint8_t rotation)
 {
