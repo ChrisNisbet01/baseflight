@@ -5,9 +5,7 @@
 #endif
 
 static bool standardBoardAlignment = true;     // board orientation correction
-#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
-static int32_t boardRotation[3][3];              // matrix
-#else
+#if !defined(BOARD_ALIGN_USES_INTEGER_MATH)
 static float boardRotation[3][3];              // matrix
 #endif
 
@@ -22,23 +20,24 @@ int constrain(int amt, int low, int high)
 }
 
 #if defined(BOARD_ALIGN_USES_INTEGER_MATH)
-void initBoardAlignment(void)
+typedef struct rotation_context_st
+{
+    int32_t     rotationMatrix[3][3];    /* rotation matrix */
+} rotation_context_st;
+
+static rotation_context_st board_rotation;
+
+static void initRotationMatrix( rotation_context_st * const pctx, int32_t const x, int32_t const y, int32_t const z, uint32_t const scaleFactor )
 {
     int32_t cosx, sinx, cosy, siny, cosz, sinz;
     int32_t coszcosx, coszcosy, sinzcosx, coszsinx, sinzsinx;
 
-    // standard alignment, nothing to calculate
-    if (!mcfg.board_align_roll && !mcfg.board_align_pitch && !mcfg.board_align_yaw)
-        return;
-
-    standardBoardAlignment = false;
-
-    cosx = cosi(mcfg.board_align_roll, 1);
-    sinx = sini(mcfg.board_align_roll, 1);
-    cosy = cosi(mcfg.board_align_pitch, 1);
-    siny = sini(mcfg.board_align_pitch, 1);
-    cosz = cosi(mcfg.board_align_yaw, 1);
-    sinz = sini(mcfg.board_align_yaw, 1);
+    cosx = cosi(x, scaleFactor);
+    sinx = sini(x, scaleFactor);
+    cosy = cosi(y, scaleFactor);
+    siny = sini(y, scaleFactor);
+    cosz = cosi(z, scaleFactor);
+    sinz = sini(z, scaleFactor);
 
     coszcosx = cosz * cosx;
     coszcosx = DIVIDE_WITH_ROUNDING(coszcosx, SINE_RANGE);
@@ -56,32 +55,60 @@ void initBoardAlignment(void)
     sinzsinx = DIVIDE_WITH_ROUNDING(sinzsinx, SINE_RANGE);
 
     // define rotation matrix
-    boardRotation[0][0] = coszcosy;
-    boardRotation[0][1] = -cosy * sinz;
-    boardRotation[0][1] = DIVIDE_WITH_ROUNDING(boardRotation[0][1], SINE_RANGE);
-    boardRotation[0][2] = siny;
+    pctx->rotationMatrix[0][0] = coszcosy;
+    pctx->rotationMatrix[0][1] = -cosy * sinz;
+    pctx->rotationMatrix[0][1] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][1], SINE_RANGE);
+    pctx->rotationMatrix[0][2] = siny;
 
-    boardRotation[1][0] = sinzcosx + DIVIDE_WITH_ROUNDING((coszsinx * siny),SINE_RANGE);
-    boardRotation[1][1] = coszcosx - DIVIDE_WITH_ROUNDING((sinzsinx * siny), SINE_RANGE);
-    boardRotation[1][2] = -sinx * cosy;
-    boardRotation[1][2] = DIVIDE_WITH_ROUNDING(boardRotation[1][2], SINE_RANGE);
+    pctx->rotationMatrix[1][0] = sinzcosx + DIVIDE_WITH_ROUNDING((coszsinx * siny),SINE_RANGE);
+    pctx->rotationMatrix[1][1] = coszcosx - DIVIDE_WITH_ROUNDING((sinzsinx * siny), SINE_RANGE);
+    pctx->rotationMatrix[1][2] = -sinx * cosy;
+    pctx->rotationMatrix[1][2] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[1][2], SINE_RANGE);
 
-    boardRotation[2][0] = (sinzsinx) - DIVIDE_WITH_ROUNDING((coszcosx * siny), SINE_RANGE);
-    boardRotation[2][1] = (coszsinx) + DIVIDE_WITH_ROUNDING((sinzcosx * siny), SINE_RANGE);
-    boardRotation[2][2] = cosy * cosx;
-    boardRotation[2][2] = DIVIDE_WITH_ROUNDING(boardRotation[2][2], SINE_RANGE);
+    pctx->rotationMatrix[2][0] = (sinzsinx) - DIVIDE_WITH_ROUNDING((coszcosx * siny), SINE_RANGE);
+    pctx->rotationMatrix[2][1] = (coszsinx) + DIVIDE_WITH_ROUNDING((sinzcosx * siny), SINE_RANGE);
+    pctx->rotationMatrix[2][2] = cosy * cosx;
+    pctx->rotationMatrix[2][2] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[2][2], SINE_RANGE);
+
+}
+
+static void performRotation( rotation_context_st const * const pctx, int32_t * const vec[3] )
+{
+    int32_t x = vec[0];
+    int32_t y = vec[1];
+    int32_t z = vec[2]
+    
+    vec[0] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][0] * x + pctx->rotationMatrix[1][0] * y + pctx->rotationMatrix[2][0] * z, SINE_RANGE);
+    vec[1] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][1] * x + pctx->rotationMatrix[1][1] * y + pctx->rotationMatrix[2][1] * z, SINE_RANGE);
+    vec[2] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][2] * x + pctx->rotationMatrix[1][2] * y + pctx->rotationMatrix[2][2] * z, SINE_RANGE);  
+}
+
+void initBoardAlignment(void)
+{
+    // standard alignment, nothing to calculate
+    if (!mcfg.board_align_roll && !mcfg.board_align_pitch && !mcfg.board_align_yaw)
+        return;
+
+    standardBoardAlignment = false;
+
+    initRotationMatrix( &board_rotation, mcfg.board_align_roll, mcfg.board_align_pitch, mcfg.board_align_yaw, 1 );
 
 }
 
 void alignBoard(int16_t *vec)
 {
-    int16_t x = vec[X];
-    int16_t y = vec[Y];
-    int16_t z = vec[Z];
+    // TODO: change so that int32 values are passed in to save shifting values into temporary variables.
+    int32_t tmp[3];
 
-    vec[X] = DIVIDE_WITH_ROUNDING(boardRotation[0][0] * x + boardRotation[1][0] * y + boardRotation[2][0] * z, SINE_RANGE);
-    vec[Y] = DIVIDE_WITH_ROUNDING(boardRotation[0][1] * x + boardRotation[1][1] * y + boardRotation[2][1] * z, SINE_RANGE);
-    vec[Z] = DIVIDE_WITH_ROUNDING(boardRotation[0][2] * x + boardRotation[1][2] * y + boardRotation[2][2] * z, SINE_RANGE);  
+    tmp[0] = vec[0];
+    tmp[1] = vec[1];
+    tmp[2] = vec[2];
+
+    performRotation( &board_rotation, tmp );
+
+    vec[0] = tmp[0];
+    vec[1] = tmp[1];
+    vec[2] = tmp[2];
 }
 #else
 void initBoardAlignment(void)
