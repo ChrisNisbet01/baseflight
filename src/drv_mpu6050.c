@@ -114,6 +114,7 @@ static void mpu6050AccInit(sensor_align_e align);
 static void mpu6050AccRead(int16_t *accData);
 static void mpu6050GyroInit(sensor_align_e align);
 static void mpu6050GyroRead(int16_t *gyroData);
+static int32_t mpu6050RawToDPSx10( int32_t raw );
 
 extern uint16_t acc_1G;
 static uint8_t mpuAccelHalf = 0;
@@ -168,6 +169,7 @@ bool mpu6050Detect(sensor_t *acc, sensor_t *gyro, uint16_t lpf, uint8_t *scale)
 
     // 16.4 dps/lsb scalefactor
     gyro->scale = (4.0f / 16.4f) * (M_PI / 180.0f) * 0.000001f;
+    gyro->gyroScaleRaw = mpu6050RawToDPSx10;
 
     // give halfacc (old revision) back to system
     if (scale)
@@ -261,9 +263,22 @@ static void mpu6050GyroRead(int16_t *gyroData)
     int16_t data[3];
 
     i2cRead(MPU6050_ADDRESS, MPU_RA_GYRO_XOUT_H, 6, buf);
+
+    /* divide by 4 to give +-8192 == +-2000 degrees/sec */
+    
     data[0] = (int16_t)((buf[0] << 8) | buf[1]) / 4;
     data[1] = (int16_t)((buf[2] << 8) | buf[3]) / 4;
     data[2] = (int16_t)((buf[4] << 8) | buf[5]) / 4;
 
     alignSensors(data, gyroData, gyroAlign);
 }
+
+/* convert raw ADC value into degrees/sec * 10 */
+static int32_t mpu6050RawToDPSx10( int32_t raw )
+{
+    // TODO: get raw value to use full scale +-32768 rather than +=8192.
+    // Requires conversion to 32 bit storage.
+    return DIVIDE_WITH_ROUNDING(raw * 20000, 32768/4);
+}
+
+

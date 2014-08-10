@@ -29,6 +29,7 @@ static sensor_align_e gyroAlign = CW0_DEG;
 
 static void l3g4200dInit(sensor_align_e align);
 static void l3g4200dRead(int16_t *gyroData);
+static int32_t l3g4200dRawToDPSx10( int32_t raw );
 
 bool l3g4200dDetect(sensor_t *gyro, uint16_t lpf)
 {
@@ -45,7 +46,8 @@ bool l3g4200dDetect(sensor_t *gyro, uint16_t lpf)
 
     // 14.2857dps/lsb scalefactor
     gyro->scale = (((32767.0f / 14.2857f) * M_PI) / ((32767.0f / 4.0f) * 180.0f * 1000000.0f));
-
+    gyro->gyroScaleRaw = l3g4200dRawToDPSx10;
+    
     // default LPF is set to 32Hz
     switch (lpf) {
         default:
@@ -95,3 +97,10 @@ static void l3g4200dRead(int16_t *gyroData)
 
     alignSensors(data, gyroData, gyroAlign);
 }
+
+/* convert raw ADC value into degrees/sec * 10 */
+static int32_t l3g4200dRawToDPSx10( int32_t raw )
+{
+    return DIVIDE_WITH_ROUNDING(raw * 20000, 32768/4);
+}
+
