@@ -27,6 +27,8 @@
 #include "drv_system.h"         // timers, delays, etc
 #include "drv_gpio.h"
 #include "utils.h"
+#include "sini.h"
+#include "i64sqrt.h"
 
 #ifndef M_PI
 #define M_PI       3.14159265358979323846f

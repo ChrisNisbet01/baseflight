@@ -1,8 +1,5 @@
 #include "board.h"
 #include "mw.h"
-#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
-#include "sini.h"
-#endif
 
 static bool standardBoardAlignment = true;     // board orientation correction
 #if !defined(BOARD_ALIGN_USES_INTEGER_MATH)

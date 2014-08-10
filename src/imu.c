@@ -5,7 +5,7 @@ int16_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
 int32_t accSum[3];
 uint32_t accTimeSum = 0;        // keep track for integration of acc
 int accSumCount = 0;
-int16_t smallAngle = 0;
+int32_t smallAngle = 0;
 int32_t baroPressure = 0;
 int32_t baroTemperature = 0;
 uint32_t baroPressureSum = 0;
@@ -38,7 +38,11 @@ static void getEstimatedAttitude(void);
 
 void imuInit(void)
 {
+#if defined(ESTG_USES_INTEGER_MATH)
+    smallAngle = ((int32_t)acc_1G * cosi(cfg.small_angle, 1))/SINE_RANGE;
+#else
     smallAngle = LRINTF(acc_1G * cosf(RAD * cfg.small_angle));
+#endif
     accVelScale = 9.80665f / acc_1G / 10000.0f;
     throttleAngleScale = (1800.0f / M_PI) * (900.0f / cfg.throttle_correction_angle);
     
@@ -103,7 +107,22 @@ typedef union {
     t_fp_vector_def V;
 } t_fp_vector;
 
+#if defined ESTG_USES_INTEGER_MATH
+typedef struct i_vector {
+    int32_t X;
+    int32_t Y;
+    int32_t Z;
+} t_i_vector_def;
+
+typedef union {
+    int32_t A[3];
+    t_i_vector_def V;
+} t_i_vector;
+t_i_vector EstG;
+#else
 t_fp_vector EstG;
+#endif
+
 
 // Normalize a vector
 void normalizeV(struct fp_vector *src, struct fp_vector *dest)
@@ -249,14 +268,25 @@ static void getEstimatedAttitude(void)
     static uint32_t previousT;
     uint32_t currentT = micros();
     uint32_t deltaT;
-    float scale, deltaGyroAngle[3];
+#if defined(ESTG_USES_INTEGER_MATH)
+    int32_t deltaGyroAngle[3];
+#else
+    float scale;
+    float deltaGyroAngle[3];
+#endif
     deltaT = currentT - previousT;
+#if !defined(ESTG_USES_INTEGER_MATH)
     scale = deltaT * gyro.scale;
+#endif
     previousT = currentT;
 
     // Initialization
     for (axis = 0; axis < 3; axis++) {
+#if defined(ESTG_USES_INTEGER_MATH)
+        deltaGyroAngle[axis] = gyro.gyroScaleRaw(gyroADC[axis]);
+#else
         deltaGyroAngle[axis] = gyroADC[axis] * scale;
+#endif
         if (cfg.acc_lpf_factor > 0) {
             accLPF[axis] = accLPF[axis] * (1.0f - (1.0f / cfg.acc_lpf_factor)) + accADC[axis] * (1.0f / cfg.acc_lpf_factor);
             accSmooth[axis] = accLPF[axis];
@@ -267,21 +297,43 @@ static void getEstimatedAttitude(void)
     }
     accMag = accMag * 100 / ((int32_t)acc_1G * acc_1G);
 
+#if defined(ESTG_USES_INTEGER_MATH)
+    rotateVi(&EstG.V, deltaGyroAngle, 10);
+#else
     rotateV(&EstG.V, deltaGyroAngle);
-
-    // Apply complimentary filter (Gyro drift correction)
+#endif
+    // Apply complementary filter (Gyro drift correction)
     // If accel magnitude >1.15G or <0.85G and ACC vector outside of the limit range => we neutralize the effect of accelerometers in the angle estimation.
     // To do that, we just skip filter, as EstV already rotated by Gyro
     if (72 < (uint16_t)accMag && (uint16_t)accMag < 133) {
         for (axis = 0; axis < 3; axis++)
+#if defined(ESTG_USES_INTEGER_MATH)
+            EstG.A[axis] = (EstG.A[axis] * mcfg.gyro_cmpf_factor + (accSmooth[axis]*1000)) / (1+mcfg.gyro_cmpf_factor);
+#else
             EstG.A[axis] = (EstG.A[axis] * (float)mcfg.gyro_cmpf_factor + accSmooth[axis]) * INV_GYR_CMPF_FACTOR;
+#endif
     }
 
+#if defined(ESTG_USES_INTEGER_MATH)
+    f.SMALL_ANGLE = (EstG.A[Z] > smallAngle*1000);
+#else
     f.SMALL_ANGLE = (EstG.A[Z] > smallAngle);
+#endif
 
     // Attitude of the estimated vector
+#if defined(ESTG_USES_INTEGER_MATH)
+{
+    uint64_t tmp;
+    tmp = (uint64_t)EstG.V.Y * EstG.V.Y + (uint64_t)EstG.V.Z * EstG.V.Z;
+
+    // TODO: integer versions of atan2f() and sqrtf()
+    anglerad[ROLL] = atan2f((float)EstG.V.Y, (float)EstG.V.Z);
+    anglerad[PITCH] = atan2f((float)-EstG.V.X, i64sqrt(tmp));
+}
+#else
     anglerad[ROLL] = atan2f(EstG.V.Y, EstG.V.Z);
     anglerad[PITCH] = atan2f(-EstG.V.X, sqrtf(EstG.V.Y * EstG.V.Y + EstG.V.Z * EstG.V.Z));
+#endif
     angle[ROLL] = LRINTF(anglerad[ROLL] * (1800.0f / M_PI));
     angle[PITCH] = LRINTF(anglerad[PITCH] * (1800.0f / M_PI));
 
