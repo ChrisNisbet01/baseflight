@@ -18,7 +18,11 @@ extern bool AccInflightCalibrationSavetoEEProm;
 extern bool AccInflightCalibrationActive;
 extern uint16_t batteryWarningVoltage;
 extern uint8_t batteryCellCount;
+#if defined(ESTG_USES_INTEGER_MATH)
+extern int magneticDeclination;
+#else
 extern float magneticDeclination;
+#endif
 
 sensor_t acc;                       // acc access functions
 sensor_t gyro;                      // gyro access functions
@@ -130,10 +134,17 @@ retry:
     // calculate magnetic declination
     deg = cfg.mag_declination / 100;
     min = cfg.mag_declination % 100;
+#if defined(ESTG_USES_INTEGER_MATH)
+    if (sensors(SENSOR_MAG))
+        magneticDeclination = (deg * 10) + DIVIDE_WITH_ROUNDING(min * 10, 60); // heading is in 0.1deg units
+    else
+        magneticDeclination = 0;
+#else
     if (sensors(SENSOR_MAG))
         magneticDeclination = (deg + ((float)min * (1.0f / 60.0f))) * 10; // heading is in 0.1deg units
     else
         magneticDeclination = 0.0f;
+#endif
 
     return true;
 }

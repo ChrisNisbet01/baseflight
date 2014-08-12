@@ -16,15 +16,9 @@ int constrain(int amt, int low, int high)
         return amt;
 }
 
-#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
-typedef struct rotation_context_st
-{
-    int32_t     rotationMatrix[3][3];    /* rotation matrix */
-} rotation_context_st;
+#if defined(BOARD_ALIGN_USES_INTEGER_MATH) || defined(ESTG_USES_INTEGER_MATH)
 
-static rotation_context_st board_rotation;
-
-static void initRotationMatrix( rotation_context_st * const pctx, int32_t const x, int32_t const y, int32_t const z, uint32_t const scaleFactor )
+void initRotationMatrix( rotation_context_st * const pctx, int32_t const x, int32_t const y, int32_t const z, uint32_t const scaleFactor )
 {
     int32_t cosx, sinx, cosy, siny, cosz, sinz;
     int32_t coszcosx, coszcosy, sinzcosx, coszsinx, sinzsinx;
@@ -69,16 +63,21 @@ static void initRotationMatrix( rotation_context_st * const pctx, int32_t const 
 
 }
 
-static void performRotation( rotation_context_st const * const pctx, int32_t * const vec[3] )
+void performRotation( rotation_context_st const * const pctx, int32_t * vec )
 {
     int32_t x = vec[0];
     int32_t y = vec[1];
-    int32_t z = vec[2]
+    int32_t z = vec[2];
     
     vec[0] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][0] * x + pctx->rotationMatrix[1][0] * y + pctx->rotationMatrix[2][0] * z, SINE_RANGE);
     vec[1] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][1] * x + pctx->rotationMatrix[1][1] * y + pctx->rotationMatrix[2][1] * z, SINE_RANGE);
     vec[2] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][2] * x + pctx->rotationMatrix[1][2] * y + pctx->rotationMatrix[2][2] * z, SINE_RANGE);  
 }
+#endif
+
+#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
+
+static rotation_context_st board_rotation;
 
 void initBoardAlignment(void)
 {
@@ -224,7 +223,7 @@ int32_t divideWithRounding( int32_t value, int32_t divisor )
 
 long baseflightLrintf(float x)
 {
-    return (x > 0) ? x + 0.5f : x - 0.5f;
+    return (x >= 0) ? x + 0.5f : x - 0.5f;
 }
 
 #ifdef PROD_DEBUG

@@ -44,6 +44,8 @@ BIN_DIR		 = $(ROOT)/obj
 COMMON_SRC	 = buzzer.c \
 		   sini.c \
 		   i64sqrt.c \
+		   i32sqrt.c \
+		   atan2i.c \
 		   cli.c \
 		   config.c \
 		   imu.c \
