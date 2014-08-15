@@ -273,10 +273,12 @@ static void mpu6050GyroRead(int16_t *gyroData)
     alignSensors(data, gyroData, gyroAlign);
 }
 
-/* convert raw ADC value into degrees/sec * 10 */
+/* convert raw ADC value into degrees/sec * scale_factor */
 static int32_t mpu6050RawToDPS( int32_t raw, unsigned int scale_factor )
 {
     // TODO: get raw value to use full scale +-32768 rather than +=8192.
+    // XXX Don't use scale factors greater than ~130 to avoid overflowing
+    // 32 bit storage.
     // Requires conversion to 32 bit storage.
     return DIVIDE_WITH_ROUNDING(raw * scale_factor * 2000, 32768/4);
 }

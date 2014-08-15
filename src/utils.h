@@ -11,7 +11,7 @@ long baseflightLrintf(float x);
 #define LRINTF(x) lrintf(x)  
 #endif
 
-#if defined(BOARD_ALIGN_USES_INTEGER_MATH) || defined(ESTG_USES_INTEGER_MATH)
+#if defined(ROTATIONS_USE_INTEGER_MATH)
 typedef struct rotation_context_st
 {
     int32_t     rotationMatrix[3][3];    /* rotation matrix */

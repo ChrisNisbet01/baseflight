@@ -2,7 +2,7 @@
 #include "mw.h"
 
 static bool standardBoardAlignment = true;     // board orientation correction
-#if !defined(BOARD_ALIGN_USES_INTEGER_MATH)
+#if !defined(ROTATIONS_USE_INTEGER_MATH)
 static float boardRotation[3][3];              // matrix
 #endif
 
@@ -16,7 +16,7 @@ int constrain(int amt, int low, int high)
         return amt;
 }
 
-#if defined(BOARD_ALIGN_USES_INTEGER_MATH) || defined(ESTG_USES_INTEGER_MATH)
+#if defined(ROTATIONS_USE_INTEGER_MATH)
 
 void initRotationMatrix( rotation_context_st * const pctx, int32_t const x, int32_t const y, int32_t const z, uint32_t const scaleFactor )
 {
@@ -73,9 +73,6 @@ void performRotation( rotation_context_st const * const pctx, int32_t * vec )
     vec[1] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][1] * x + pctx->rotationMatrix[1][1] * y + pctx->rotationMatrix[2][1] * z, SINE_RANGE);
     vec[2] = DIVIDE_WITH_ROUNDING(pctx->rotationMatrix[0][2] * x + pctx->rotationMatrix[1][2] * y + pctx->rotationMatrix[2][2] * z, SINE_RANGE);  
 }
-#endif
-
-#if defined(BOARD_ALIGN_USES_INTEGER_MATH)
 
 static rotation_context_st board_rotation;
 

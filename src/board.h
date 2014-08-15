@@ -165,14 +165,14 @@ typedef void (*baroCalculateFuncPtr)(int32_t *pressure, int32_t *temperature);  
 typedef void (*serialReceiveCallbackPtr)(uint16_t data);   // used by serial drivers to return frames to app
 typedef uint16_t (*rcReadRawDataPtr)(uint8_t chan);        // used by receiver driver to return channel data
 typedef void (*pidControllerFuncPtr)(void);                // pid controller function prototype
-typedef int32_t (*gyroScaleRawToDPSx10)( int32_t raw, unsigned int scale_factor );
+typedef int32_t (*gyroScaleRawToDPS)( int32_t raw, unsigned int scale_factor );
 
 typedef struct sensor_t {
     sensorInitFuncPtr init;                                 // initialize function
     sensorReadFuncPtr read;                                 // read 3 axis data function
     sensorReadFuncPtr temperature;                          // read temperature if available
     float scale;                                            // scalefactor (currently used for gyro only, todo for accel)
-    gyroScaleRawToDPSx10 gyroScaleRaw;                      // scale raw value into degrees/sec x scale factor
+    gyroScaleRawToDPS gyroScaleRaw;                         // scale raw value into degrees/sec x scale factor
 } sensor_t;
 
 typedef struct baro_t {
