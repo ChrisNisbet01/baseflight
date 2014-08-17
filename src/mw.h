@@ -450,7 +450,7 @@ int getEstimatedAltitude(void);
 // Sensors
 bool sensorsAutodetect(void);
 void batteryInit(void);
-uint16_t batteryAdcToVoltage(uint16_t src);
+uint32_t batteryAdcToVoltage(uint32_t src);
 int32_t currentSensorToCentiamps(uint16_t src);
 void ACC_getADC(void);
 int Baro_update(void);

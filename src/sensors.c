@@ -138,22 +138,23 @@ retry:
     return true;
 }
 
-uint16_t batteryAdcToVoltage(uint16_t src)
+#define ADCVREF 33L
+uint32_t batteryAdcToVoltage(uint32_t src)
 {
     // calculate battery voltage based on ADC reading
     // result is Vbatt in 0.1V steps. 3.3V = ADC Vref, 4095 = 12bit adc, 110 = 11:1 voltage divider (10k:1k) * 10 for 0.1V
-    return (((src) * 3.3f) / 4095) * mcfg.vbatscale;
+    return DIVIDE_WITH_ROUNDING( src * ADCVREF * mcfg.vbatscale, 40950 );
 }
 
-#define ADCVREF 33L
 int32_t currentSensorToCentiamps(uint16_t src)
 {
     int32_t millivolts;
     
-    millivolts = ((uint32_t)src * ADCVREF * 100) / 4095;
+    millivolts = DIVIDE_WITH_ROUNDING((uint32_t)src * ADCVREF * 100, 4095);
+
     millivolts -= mcfg.currentoffset;
     
-    return (millivolts * 1000) / (int32_t)mcfg.currentscale; // current in 0.01A steps 
+    return DIVIDE_WITH_ROUNDING(millivolts * 1000, mcfg.currentscale); // current in 0.01A steps 
 }
 
 void batteryInit(void)
@@ -167,7 +168,7 @@ void batteryInit(void)
         delay(10);
     }
 
-    voltage = batteryAdcToVoltage((uint16_t)(voltage / 32));
+    voltage = batteryAdcToVoltage(voltage / 32);
 
     // autodetect cell count, going from 2S..8S
     for (i = 1; i < 8; i++) {
@@ -196,9 +197,9 @@ static void ACC_Common(void)
         }
         // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
         if (calibratingA == 1) {
-            mcfg.accZero[ROLL] = (a[ROLL] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES;
-            mcfg.accZero[PITCH] = (a[PITCH] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES;
-            mcfg.accZero[YAW] = (a[YAW] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES - acc_1G;
+            mcfg.accZero[ROLL] = DIVIDE_WITH_ROUNDING(a[ROLL], CALIBRATING_ACC_CYCLES);
+            mcfg.accZero[PITCH] = DIVIDE_WITH_ROUNDING(a[PITCH], CALIBRATING_ACC_CYCLES);
+            mcfg.accZero[YAW] = DIVIDE_WITH_ROUNDING(a[YAW], CALIBRATING_ACC_CYCLES) - acc_1G;
             cfg.angleTrim[ROLL] = 0;
             cfg.angleTrim[PITCH] = 0;
             writeEEPROM(1, true);      // write accZero in EEPROM
@@ -246,9 +247,9 @@ static void ACC_Common(void)
         // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
         if (AccInflightCalibrationSavetoEEProm) {      // the copter is landed, disarmed and the combo has been done again
             AccInflightCalibrationSavetoEEProm = false;
-            mcfg.accZero[ROLL] = b[ROLL] / 50;
-            mcfg.accZero[PITCH] = b[PITCH] / 50;
-            mcfg.accZero[YAW] = b[YAW] / 50 - acc_1G;    // for nunchuk 200=1G
+            mcfg.accZero[ROLL] = DIVIDE_WITH_ROUNDING(b[ROLL], 50);
+            mcfg.accZero[PITCH] = DIVIDE_WITH_ROUNDING(b[PITCH], 50);
+            mcfg.accZero[YAW] = DIVIDE_WITH_ROUNDING(b[YAW], 50) - acc_1G;    // for nunchuk 200=1G
             cfg.angleTrim[ROLL] = 0;
             cfg.angleTrim[PITCH] = 0;
             writeEEPROM(1, true);          // write accZero in EEPROM
