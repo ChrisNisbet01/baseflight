@@ -6,9 +6,9 @@
 #include "board.h"
 #include "mw.h"
 
-uint16_t calibratingA = 0;      // the calibration is done is the main loop. Calibrating decreases at each cycle down to 0, then we enter in a normal mode.
-uint16_t calibratingB = 0;      // baro calibration = get new ground pressure value
-uint16_t calibratingG = 0;
+int calibratingA = 0;      // the calibration is done is the main loop. Calibrating decreases at each cycle down to 0, then we enter in a normal mode.
+int calibratingB = 0;      // baro calibration = get new ground pressure value
+int calibratingG = 0;
 uint16_t acc_1G = 256;          // this is the 1G measured acceleration.
 int16_t heading, magHold;
 
@@ -18,7 +18,7 @@ extern bool AccInflightCalibrationSavetoEEProm;
 extern bool AccInflightCalibrationActive;
 extern uint16_t batteryWarningVoltage;
 extern uint8_t batteryCellCount;
-extern float magneticDeclination;
+extern int magneticDeclination;
 
 sensor_t acc;                       // acc access functions
 sensor_t gyro;                      // gyro access functions
@@ -131,9 +131,9 @@ retry:
     deg = cfg.mag_declination / 100;
     min = cfg.mag_declination % 100;
     if (sensors(SENSOR_MAG))
-        magneticDeclination = (deg + ((float)min * (1.0f / 60.0f))) * 10; // heading is in 0.1deg units
+        magneticDeclination = (deg * 10) + DIVIDE_WITH_ROUNDING( min * 10, 60 );
     else
-        magneticDeclination = 0.0f;
+        magneticDeclination = 0;
 
     return true;
 }
@@ -168,7 +168,7 @@ void batteryInit(void)
         delay(10);
     }
 
-    voltage = batteryAdcToVoltage(voltage / 32);
+    voltage = batteryAdcToVoltage(DIVIDE_WITH_ROUNDING(voltage, 32));
 
     // autodetect cell count, going from 2S..8S
     for (i = 1; i < 8; i++) {
@@ -376,7 +376,7 @@ static void GYRO_Common(void)
                     g[0] = g[1] = g[2] = 0;
                     continue;
                 }
-                gyroZero[axis] = (g[axis] + (CALIBRATING_GYRO_CYCLES / 2)) / CALIBRATING_GYRO_CYCLES;
+                gyroZero[axis] = DIVIDE_WITH_ROUNDING(g[axis], CALIBRATING_GYRO_CYCLES);
                 blinkLED(10, 15, 1);
             }
         }
@@ -447,7 +447,7 @@ int Mag_getADC(void)
         } else {
             tCal = 0;
             for (axis = 0; axis < 3; axis++)
-                mcfg.magZero[axis] = (magZeroTempMin[axis] + magZeroTempMax[axis]) / 2; // Calculate offsets
+                mcfg.magZero[axis] = DIVIDE_WITH_ROUNDING(magZeroTempMin[axis] + magZeroTempMax[axis], 2); // Calculate offsets
             writeEEPROM(1, true);
         }
     }

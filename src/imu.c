@@ -25,7 +25,7 @@ uint8_t velocityControl = 0;
 int32_t errorVelocityI = 0;
 int32_t vario = 0;                      // variometer in cm/s
 int16_t throttleAngleCorrection = 0;    // correction of throttle in lateral wind,
-float magneticDeclination = 0.0f;       // calculated at startup from config
+int magneticDeclination = 0;            // calculated at startup from config
 float throttleAngleScale;
 #endif
 float fc_acc;
