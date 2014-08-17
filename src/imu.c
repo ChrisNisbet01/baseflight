@@ -370,7 +370,7 @@ int getEstimatedAltitude(void)
     if (tiltAngle > 250)
         sonarAlt = -1;
     else
-        sonarAlt = sonarAlt * (900.0f - tiltAngle) / 900.0f;
+        sonarAlt = DIVIDE_WITH_ROUNDING( sonarAlt * cosi(tiltAngle, 10), SINE_RANGE );
 
     // do sonarAlt and baroAlt fusion
     if (sonarAlt > 0 && sonarAlt < 200) {
@@ -428,7 +428,7 @@ int getEstimatedAltitude(void)
         // Altitude P-Controller
         if (!velocityControl) {
             error = constrain(AltHold - EstAlt, -500, 500);
-            error = applyDeadband(error, 10);       // remove small P parametr to reduce noise near zero position
+            error = applyDeadband(error, 10);       // remove small P parameter to reduce noise near zero position
             setVel = constrain((cfg.P8[PIDALT] * error / 128), -300, +300); // limit velocity to +/- 3 m/s
         } else {
             setVel = setVelocity;

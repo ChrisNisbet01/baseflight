@@ -269,7 +269,7 @@ void computeRC(void)
             rcData[chan] = 0;
             for (i = 0; i < 4; i++)
                 rcData[chan] += rcDataAverage[chan][i];
-            rcData[chan] /= 4;
+            rcData[chan] = DIVIDE_WITH_ROUNDING(rcData[chan], 4);
         }
         rcAverageIndex++;
     }
