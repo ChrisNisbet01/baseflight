@@ -25,10 +25,6 @@ uint8_t velocityControl = 0;
 int32_t errorVelocityI = 0;
 int32_t vario = 0;                      // variometer in cm/s
 int16_t throttleAngleCorrection = 0;    // correction of throttle in lateral wind,
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-int magneticDeclination = 0;            // calculated at startup from config in degrees x 10
-int32_t throttleAngleScale;
-#else
 float magneticDeclination = 0.0f;       // calculated at startup from config
 float throttleAngleScale;
 #endif
@@ -41,21 +37,14 @@ float accVelScale;
 int16_t gyroData[3] = { 0, 0, 0 };
 int16_t gyroZero[3] = { 0, 0, 0 };
 int16_t angle[2] = { 0, 0 };     // absolute angle inclination in multiple of 0.1 degree    180 deg = 1800
-#if !defined(ROTATIONS_USE_INTEGER_MATH_1)
 float anglerad[2] = { 0.0f, 0.0f };    // absolute angle inclination in radians
-#endif
 
 static void getEstimatedAttitude(void);
 
 void imuInit(void)
 {
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    smallAngle = DIVIDE_WITH_ROUNDING((int32_t)acc_1G * cosi(cfg.small_angle, 1), SINE_RANGE);
-    throttleAngleScale = 90000 / cfg.throttle_correction_angle;
-#else
     smallAngle = LRINTF(acc_1G * cosf(RAD * cfg.small_angle));
     throttleAngleScale = (1800.0f / M_PI) * (900.0f / cfg.throttle_correction_angle);
-#endif
     accVelScale = 9.80665f / acc_1G / 10000.0f;
     
     fc_acc = 0.5f / (M_PI * cfg.accz_lpf_cutoff); // calculate RC time constant used in the accZ lpf
@@ -105,21 +94,6 @@ void computeIMU(void)
 //
 // **************************************************
 
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-typedef struct i_vector {
-    int32_t X;
-    int32_t Y;
-    int32_t Z;
-} t_i_vector_def;
-
-typedef union {
-    int32_t A[3];
-    t_i_vector_def V;
-} t_i_vector;
-t_i_vector EstG;
-/* Also need somewhere to store the remainder after division in complementary filter */
-t_i_vector EstG_remainder;
-#else
 #define INV_GYR_CMPF_FACTOR   (1.0f / ((float)mcfg.gyro_cmpf_factor + 1.0f))
 #define INV_GYR_CMPFM_FACTOR  (1.0f / ((float)mcfg.gyro_cmpfm_factor + 1.0f))
 
@@ -134,38 +108,9 @@ typedef union {
     t_fp_vector_def V;
 } t_fp_vector;
 t_fp_vector EstG;
-#endif
 
 
 // Normalize a vector
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-void normalizeV(struct i_vector *src, struct i_vector *dest)
-{
-    int32_t length;
-
-    length = i64sqrt((int64_t)src->X * src->X + (int64_t)src->Y * src->Y + (int64_t)src->Z * src->Z);
-    if (length != 0) {
-        dest->X = (src->X * 1024) / length;
-        dest->Y = (src->Y * 1024) / length;
-        dest->Z = (src->Z * 1024) / length;
-    }
-}
-
-void rotateV(struct i_vector *v, int32_t *delta, uint32_t scale_factor )
-{
-    struct i_vector v_tmp = *v;
-    rotation_context_st ctx;
-
-    // This does a  "proper" matrix rotation using gyro deltas without small-angle approximation
-    initRotationMatrix( &ctx, delta[ROLL], delta[PITCH], delta[YAW], scale_factor );
-    performRotation( &ctx, (int32_t * const)&v_tmp );
-    
-    v->X = v_tmp.X;
-    v->Y = v_tmp.X;
-    v->Z = v_tmp.X;
-}
-
-#else
 void normalizeV(struct fp_vector *src, struct fp_vector *dest)
 {
     float length;
@@ -214,7 +159,6 @@ void rotateV(struct fp_vector *v, float *delta)
     v->Y = v_tmp.X * mat[0][1] + v_tmp.Y * mat[1][1] + v_tmp.Z * mat[2][1];
     v->Z = v_tmp.X * mat[0][2] + v_tmp.Y * mat[1][2] + v_tmp.Z * mat[2][2];
 }
-#endif
 
 int32_t applyDeadband(int32_t value, int32_t deadband)
 {
@@ -234,37 +178,22 @@ void acc_calc(uint32_t deltaT)
     static int32_t accZoffset = 0;
     static float accz_smooth;
     float dT = 0;
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    int32_t rpy[3];
-    t_i_vector accel_ned;
-#else
     float rpy[3];
     t_fp_vector accel_ned;
-#endif
 
     // deltaT is measured in us ticks
     dT = (float)deltaT * 1e-6f;
 
     // the accel values have to be rotated into the earth frame
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    rpy[0] = -angle[ROLL];
-    rpy[1] = -angle[PITCH];
-    rpy[2] = -heading * 10;
-#else
     rpy[0] = -(float)anglerad[ROLL];
     rpy[1] = -(float)anglerad[PITCH];
     rpy[2] = -(float)heading * RAD;
-#endif
 
     accel_ned.V.X = accSmooth[0];
     accel_ned.V.Y = accSmooth[1];
     accel_ned.V.Z = accSmooth[2];
 
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    rotateV(&accel_ned.V, rpy, 10);
-#else
     rotateV(&accel_ned.V, rpy);
-#endif
 
     if (cfg.acc_unarmedcal == 1) {
         if (!f.ARMED) {
@@ -297,25 +226,6 @@ void accSum_reset(void)
 }
 
 // baseflight calculation by Luggi09 originates from arducopter
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-static int16_t calculateHeading(t_i_vector *vec)
-{
-    int16_t head;
-
-    int32_t cosineRoll = cosi(angle[ROLL], 10);
-    int32_t sineRoll = sini(angle[ROLL], 10);
-    int32_t cosinePitch = cosi(angle[PITCH], 10);
-    int32_t sinePitch = sini(angle[PITCH], 10);
-    int32_t Xh = DIVIDE_WITH_ROUNDING(vec->A[X] * cosinePitch + DIVIDE_WITH_ROUNDING(vec->A[Y] * sineRoll, SINE_RANGE) * sinePitch + DIVIDE_WITH_ROUNDING(vec->A[Z] * sinePitch, SINE_RANGE) * cosineRoll, SINE_RANGE);
-    int32_t Yh = DIVIDE_WITH_ROUNDING(vec->A[Y] * cosineRoll - vec->A[Z] * sineRoll, SINE_RANGE);
-    int32_t hd = DIVIDE_WITH_ROUNDING(atan2i(Yh, Xh, 10) + magneticDeclination, 10);
-    head = hd;
-    if (head < 0)
-        head += 360;
-
-    return head;
-}
-#else
 static int16_t calculateHeading(t_fp_vector *vec)
 {
     int16_t head;
@@ -333,44 +243,26 @@ static int16_t calculateHeading(t_fp_vector *vec)
 
     return head;
 }
-#endif
 
 static void getEstimatedAttitude(void)
 {
     int32_t axis;
     int32_t accMag = 0;
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    static t_i_vector EstM;
-    /* Need somewhere to store remainders */
-    static t_i_vector EstM_remainder;
-    static t_i_vector EstN = { .A = { 1024, 0, 0 } };
-#else
     static t_fp_vector EstM;
     static t_fp_vector EstN = { .A = { 1.0f, 0.0f, 0.0f } };
-#endif
     static float accLPF[3];
     static uint32_t previousT;
     uint32_t currentT = micros();
     uint32_t deltaT;
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    int32_t deltaGyroAngle[3];
-#else
     float scale;
     float deltaGyroAngle[3];
-#endif
     deltaT = currentT - previousT;
-#if !defined(ROTATIONS_USE_INTEGER_MATH_1)
     scale = deltaT * gyro.scale;
-#endif
     previousT = currentT;
 
     // Initialization
     for (axis = 0; axis < 3; axis++) {
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-        deltaGyroAngle[axis] = gyro.gyroScaleRaw(gyroADC[axis], GYRO_DPS_SCALE_FACTOR) * deltaT;
-#else
         deltaGyroAngle[axis] = gyroADC[axis] * scale;
-#endif
         if (cfg.acc_lpf_factor > 0) {
             accLPF[axis] = accLPF[axis] * (1.0f - (1.0f / cfg.acc_lpf_factor)) + accADC[axis] * (1.0f / cfg.acc_lpf_factor);
             accSmooth[axis] = LRINTF(accLPF[axis]);
@@ -381,76 +273,30 @@ static void getEstimatedAttitude(void)
     }
     accMag = accMag * 100 / ((int32_t)acc_1G * acc_1G);
 
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    rotateV(&EstG.V, deltaGyroAngle, GYRO_DPS_SCALE_FACTOR*1000000);
-#else
     rotateV(&EstG.V, deltaGyroAngle);
-#endif
     // Apply complementary filter (Gyro drift correction)
     // If accel magnitude >1.15G or <0.85G and ACC vector outside of the limit range => we neutralize the effect of accelerometers in the angle estimation.
     // To do that, we just skip filter, as EstV already rotated by Gyro
     if (72 < (uint16_t)accMag && (uint16_t)accMag < 133) {
         for (axis = 0; axis < 3; axis++)
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-            {
-            div_t divresult;
-
-            /* we remember the remainder after each division and add it into the next division so we don't lose precision */
-            divresult = div( (EstG.A[axis] * mcfg.gyro_cmpf_factor) + (accSmooth[axis]*ACCELEROMETER_SMOOTH_SCALE_FACTOR) + EstG_remainder.A[axis], (1+mcfg.gyro_cmpf_factor) );
-            EstG.A[axis] =  divresult.quot;
-            EstG_remainder.A[axis] = divresult.rem;
-            }
-#else
             EstG.A[axis] = (EstG.A[axis] * (float)mcfg.gyro_cmpf_factor + accSmooth[axis]) * INV_GYR_CMPF_FACTOR;
-#endif
     }
 
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-    f.SMALL_ANGLE = (EstG.A[Z] > smallAngle*ACCELEROMETER_SMOOTH_SCALE_FACTOR);
-#else
     f.SMALL_ANGLE = (EstG.A[Z] > smallAngle);
-#endif
 
     // Attitude of the estimated vector
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-{
-    int64_t tmp;
-    tmp = (int64_t)EstG.V.Y * EstG.V.Y + (int64_t)EstG.V.Z * EstG.V.Z;
-
-    angle[ROLL] = atan2i(EstG.V.Y, EstG.V.Z, 10);
-    angle[PITCH] = atan2i(-EstG.V.X, i64sqrt(tmp), 10);
-}
-#else
     anglerad[ROLL] = atan2f(EstG.V.Y, EstG.V.Z);
     anglerad[PITCH] = atan2f(-EstG.V.X, sqrtf(EstG.V.Y * EstG.V.Y + EstG.V.Z * EstG.V.Z));
     angle[ROLL] = LRINTF(anglerad[ROLL] * (1800.0f / M_PI));
     angle[PITCH] = LRINTF(anglerad[PITCH] * (1800.0f / M_PI));
-#endif
 
     if (sensors(SENSOR_MAG)) {
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-        rotateV(&EstM.V, deltaGyroAngle, GYRO_DPS_SCALE_FACTOR*1000000);
-        for (axis = 0; axis < 3; axis++)
-        {
-            div_t divresult;
-
-            /* we remember the remainder after each division and add it into the next division so we don't lose precision */
-            divresult = div( (EstM.A[axis] * mcfg.gyro_cmpfm_factor) + (magADC[axis]*MAGNETOMETER_SMOOTH_SCALE_FACTOR) + EstM_remainder.A[axis], (1+mcfg.gyro_cmpfm_factor) );
-            EstM.A[axis] =  divresult.quot;
-            EstM_remainder.A[axis] = divresult.rem;
-        }
-#else
         rotateV(&EstM.V, deltaGyroAngle);
         for (axis = 0; axis < 3; axis++)
             EstM.A[axis] = (EstM.A[axis] * (float)mcfg.gyro_cmpfm_factor + magADC[axis]) * INV_GYR_CMPFM_FACTOR;
-#endif        
         heading = calculateHeading(&EstM);
     } else {
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-        rotateV(&EstN.V, deltaGyroAngle, GYRO_DPS_SCALE_FACTOR);
-#else
         rotateV(&EstN.V, deltaGyroAngle);
-#endif
         normalizeV(&EstN.V, &EstN.V);
         heading = calculateHeading(&EstN);
     }
@@ -459,40 +305,17 @@ static void getEstimatedAttitude(void)
 
     if (cfg.throttle_correction_value) {
 
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-        /* multiply by 1000 so cosZ is in range -1024 ->1024 */
-        int32_t cosZ = (EstG.V.Z * 1024) / i64sqrt((int64_t)EstG.V.X * EstG.V.X + (int64_t)EstG.V.Y * EstG.V.Y + (int64_t)EstG.V.Z * EstG.V.Z);
-#else
         float cosZ = EstG.V.Z / sqrtf(EstG.V.X * EstG.V.X + EstG.V.Y * EstG.V.Y + EstG.V.Z * EstG.V.Z);
-#endif
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-        if (cosZ <= 15) { // we are inverted, vertical or with a small angle < 0.86 deg
-#else
         if (cosZ <= 0.015f) { // we are inverted, vertical or with a small angle < 0.86 deg
-#endif
             throttleAngleCorrection = 0;
         } else {
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-            /* 
-                cos range factor is the same as the multiplier used when creating cosZ.
-                scale factor 10 to give degrees x 10 result.
-                throttleAngleScale is in degrees * 1000, so need to divide back down
-                after the multiplication to get back to degrees x 10.
-            */
-            int deg = DIVIDE_WITH_ROUNDING(acosi( cosZ, 1024, 10 ) * throttleAngleScale, 100);
-#else
             int deg = LRINTF(acosf(cosZ) * throttleAngleScale);
-#endif
 
             if (deg > 900)
                 deg = 900;
-#if defined(ROTATIONS_USE_INTEGER_MATH_1)
-            throttleAngleCorrection = DIVIDE_WITH_ROUNDING(cfg.throttle_correction_value * sini(deg, 10), SINE_RANGE);
-#else
             throttleAngleCorrection = LRINTF(cfg.throttle_correction_value * sinf(deg * M_PI / 1800.0f));
             // CN - not sure about what this is about, but as it is, won't give full correction. */
             //throttleAngleCorrection = LRINTF(cfg.throttle_correction_value * sinf(deg / (900.0f * M_PI / 2.0f)));
-#endif
         }
 
     }
