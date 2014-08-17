@@ -30,7 +30,6 @@ static sensor_align_e gyroAlign = CW0_DEG;
 static void mpu3050Init(sensor_align_e align);
 static void mpu3050Read(int16_t *gyroData);
 static void mpu3050ReadTemp(int16_t *tempData);
-static int32_t mpu3050RawToDPS( int32_t raw, unsigned int scale_factor );
 
 bool mpu3050Detect(sensor_t *gyro, uint16_t lpf)
 {
@@ -47,7 +46,6 @@ bool mpu3050Detect(sensor_t *gyro, uint16_t lpf)
     gyro->temperature = mpu3050ReadTemp;
     // 16.4 dps/lsb scalefactor
     gyro->scale = (((32767.0f / 16.4f) * M_PI) / ((32767.0f / 4.0f) * 180.0f * 1000000.0f));
-    gyro->gyroScaleRaw = mpu3050RawToDPS;
     
     // default lpf is 42Hz
     switch (lpf) {
@@ -106,12 +104,6 @@ static void mpu3050Read(int16_t *gyroData)
     data[2] = (int16_t)((buf[4] << 8) | buf[5]) / 4;
 
     alignSensors(data, gyroData, gyroAlign);
-}
-
-/* convert raw ADC value into degrees/sec * 10 */
-static int32_t mpu3050RawToDPS( int32_t raw, unsigned int scale_factor )
-{
-    return DIVIDE_WITH_ROUNDING(raw * scale_factor * 2000, 32768/4);
 }
 
 static void mpu3050ReadTemp(int16_t *tempData)

@@ -172,7 +172,6 @@ typedef struct sensor_t {
     sensorReadFuncPtr read;                                 // read 3 axis data function
     sensorReadFuncPtr temperature;                          // read temperature if available
     float scale;                                            // scalefactor (currently used for gyro only, todo for accel)
-    gyroScaleRawToDPS gyroScaleRaw;                         // scale raw value into degrees/sec x scale factor
 } sensor_t;
 
 typedef struct baro_t {
