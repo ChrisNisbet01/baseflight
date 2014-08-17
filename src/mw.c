@@ -843,7 +843,7 @@ void loop(void)
         loopTime = currentTime + mcfg.looptime;
 
         computeIMU();
-        // Measure loop rate just afer reading the sensors
+        // Measure loop rate just after reading the sensors
         currentTime = micros();
         cycleTime = (int32_t)(currentTime - previousTime);
         previousTime = currentTime;
@@ -853,9 +853,9 @@ void loop(void)
         if (sensors(SENSOR_MAG)) {
             if (abs(rcCommand[YAW]) < 70 && f.MAG_MODE) {
                 int16_t dif = heading - magHold;
-                if (dif <= -180)
+                if (dif < -180)
                     dif += 360;
-                if (dif >= +180)
+                if (dif > 180)
                     dif -= 360;
                 dif *= -mcfg.yaw_control_direction;
                 if (f.SMALL_ANGLE)
@@ -915,16 +915,16 @@ void loop(void)
 #ifdef GPS
         if (sensors(SENSOR_GPS)) {
             if ((f.GPS_HOME_MODE || f.GPS_HOLD_MODE) && f.GPS_FIX_HOME) {
-                float sin_yaw_y = sinf(heading * 0.0174532925f);
-                float cos_yaw_x = cosf(heading * 0.0174532925f);
+                float sin_yaw_y = sinf(heading * RAD);
+                float cos_yaw_x = cosf(heading * RAD);
                 if (cfg.nav_slew_rate) {
                     nav_rated[LON] += constrain(wrap_18000(nav[LON] - nav_rated[LON]), -cfg.nav_slew_rate, cfg.nav_slew_rate); // TODO check this on uint8
                     nav_rated[LAT] += constrain(wrap_18000(nav[LAT] - nav_rated[LAT]), -cfg.nav_slew_rate, cfg.nav_slew_rate);
-                    GPS_angle[ROLL] = (nav_rated[LON] * cos_yaw_x - nav_rated[LAT] * sin_yaw_y) / 10;
-                    GPS_angle[PITCH] = (nav_rated[LON] * sin_yaw_y + nav_rated[LAT] * cos_yaw_x) / 10;
+                    GPS_angle[ROLL] = LRINTF((nav_rated[LON] * cos_yaw_x - nav_rated[LAT] * sin_yaw_y) / 10);
+                    GPS_angle[PITCH] = LRINTF((nav_rated[LON] * sin_yaw_y + nav_rated[LAT] * cos_yaw_x) / 10);
                 } else {
-                    GPS_angle[ROLL] = (nav[LON] * cos_yaw_x - nav[LAT] * sin_yaw_y) / 10;
-                    GPS_angle[PITCH] = (nav[LON] * sin_yaw_y + nav[LAT] * cos_yaw_x) / 10;
+                    GPS_angle[ROLL] = LRINTF((nav[LON] * cos_yaw_x - nav[LAT] * sin_yaw_y) / 10);
+                    GPS_angle[PITCH] = LRINTF((nav[LON] * sin_yaw_y + nav[LAT] * cos_yaw_x) / 10);
                 }
             }
         }

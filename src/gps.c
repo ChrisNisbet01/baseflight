@@ -448,7 +448,7 @@ static void gpsNewData(uint16_t c)
             // prevent runup from bad GPS
             dTnav = min(dTnav, 1.0f);
 
-            // calculate distance and bearings for gui and other stuff continously - From home to copter
+            // calculate distance and bearings for gui and other stuff continuously - From home to copter
             GPS_distance_cm_bearing(&GPS_coord[LAT], &GPS_coord[LON], &GPS_home[LAT], &GPS_home[LON], &dist, &dir);
             GPS_distanceToHome = dist / 100;
             GPS_directionToHome = dir / 100;
