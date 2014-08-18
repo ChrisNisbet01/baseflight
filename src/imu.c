@@ -26,7 +26,6 @@ int32_t vario = 0;                      // variometer in cm/s
 int16_t throttleAngleCorrection = 0;    // correction of throttle in lateral wind,
 int magneticDeclination = 0;            // calculated at startup from config
 float throttleAngleScale;
-#endif
 float fc_acc;
 float accVelScale;
 
@@ -43,7 +42,7 @@ static void getEstimatedAttitude(void);
 void imuInit(void)
 {
     smallAngle = LRINTF(acc_1G * cosf(RAD * cfg.small_angle));
-    throttleAngleScale = (1800.0f / M_PI) * (900.0f / cfg.throttle_correction_angle);
+    throttleAngleScale = 90000 / cfg.throttle_correction_angle;
     accVelScale = 9.80665f / acc_1G / 10000.0f;
     
     fc_acc = 0.5f / (M_PI * cfg.accz_lpf_cutoff); // calculate RC time constant used in the accZ lpf
@@ -308,11 +307,11 @@ static void getEstimatedAttitude(void)
         if (cosZ <= 0.015f) { // we are inverted, vertical or with a small angle < 0.86 deg
             throttleAngleCorrection = 0;
         } else {
-            int deg = LRINTF(acosf(cosZ) * throttleAngleScale);
+            int deg = DIVIDE_WITH_ROUNDING(acosi( LRINTF(cosZ*1000), 1000, 10 ) * throttleAngleScale, 100);
 
             if (deg > 900)
                 deg = 900;
-            throttleAngleCorrection = LRINTF(cfg.throttle_correction_value * sinf(deg * M_PI / 1800.0f));
+            throttleAngleCorrection = DIVIDE_WITH_ROUNDING(cfg.throttle_correction_value * sini(deg, 10), SINE_RANGE );
             // CN - not sure about what this is about, but as it is, won't give full correction. */
             //throttleAngleCorrection = LRINTF(cfg.throttle_correction_value * sinf(deg / (900.0f * M_PI / 2.0f)));
         }
