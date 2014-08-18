@@ -92,7 +92,7 @@ static void sendAccel(void)
 
     for (i = 0; i < 3; i++) {
         sendDataHead(ID_ACC_X + i);
-        serialize16(((float)accSmooth[i] / acc_1G) * 1000);
+        serialize16(DIVIDE_WITH_ROUNDING((int32_t)accSmooth[i]*1000, acc_1G));
     }
 }
 
