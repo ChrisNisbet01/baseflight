@@ -65,16 +65,26 @@
 #define HMC58X3_R_CONFA 0
 #define HMC58X3_R_CONFB 1
 #define HMC58X3_R_MODE 2
-#define HMC58X3_X_SELF_TEST_GAUSS (+1.16f)       // X axis level when bias current is applied.
-#define HMC58X3_Y_SELF_TEST_GAUSS (+1.16f)       // Y axis level when bias current is applied.
-#define HMC58X3_Z_SELF_TEST_GAUSS (+1.08f)       // Z axis level when bias current is applied.
+#define HMC58X3_X_SELF_TEST_GAUSS 17400       // X axis level (*15000) when bias current is applied.
+#define HMC58X3_Y_SELF_TEST_GAUSS 17400       // Y axis level (*15000) when bias current is applied.
+#define HMC58X3_Z_SELF_TEST_GAUSS 16200       // Z axis level (*15000) when bias current is applied.
+#define HMC58X3_X_SELF_TEST_GAUSS_F 1.16f       // X axis level when bias current is applied.
+#define HMC58X3_Y_SELF_TEST_GAUSS_F 1.16f       // Y axis level when bias current is applied.
+#define HMC58X3_Z_SELF_TEST_GAUSS_F 1.08f       // Z axis level when bias current is applied.
+
 #define SELF_TEST_LOW_LIMIT  (243.0f / 390.0f)    // Low limit when gain is 5.
 #define SELF_TEST_HIGH_LIMIT (575.0f / 390.0f)    // High limit when gain is 5.
 #define HMC_POS_BIAS 1
 #define HMC_NEG_BIAS 2
 
+#define MAG_GAIN_SCALE_FACTOR 15000
+
 static sensor_align_e magAlign = CW180_DEG;
-static float magGain[3] = { 1.0f, 1.0f, 1.0f };
+#if defined(MAG_USES_INT_MATH)
+static int32_t magGain[3] = { MAG_GAIN_SCALE_FACTOR, MAG_GAIN_SCALE_FACTOR, MAG_GAIN_SCALE_FACTOR };
+#else
+static float magGainf[3] = { 1.0f, 1.0f, 1.0f };
+#endif
 
 bool hmc5883lDetect(sensor_align_e align)
 {
@@ -157,9 +167,16 @@ void hmc5883lInit(void)
         LED1_TOGGLE;
     }
 
-    magGain[X] = fabsf(660.0f * HMC58X3_X_SELF_TEST_GAUSS * 2.0f * 10.0f / xyz_total[X]);
-    magGain[Y] = fabsf(660.0f * HMC58X3_Y_SELF_TEST_GAUSS * 2.0f * 10.0f / xyz_total[Y]);
-    magGain[Z] = fabsf(660.0f * HMC58X3_Z_SELF_TEST_GAUSS * 2.0f * 10.0f / xyz_total[Z]);
+    // XXX Test for divide by 0?
+#if defined(MAG_USES_INT_MATH)
+    magGain[X] = abs(660 * HMC58X3_X_SELF_TEST_GAUSS * 2 * 10 / xyz_total[X]);
+    magGain[Y] = abs(660 * HMC58X3_Y_SELF_TEST_GAUSS * 2 * 10 / xyz_total[Y]);
+    magGain[Z] = abs(660 * HMC58X3_Z_SELF_TEST_GAUSS * 2 * 10 / xyz_total[Z]);
+#else
+    magGainf[X] = abs(660.0f * HMC58X3_X_SELF_TEST_GAUSS_F * 2.0f * 10.0f / xyz_total[X]);
+    magGainf[Y] = abs(660.0f * HMC58X3_Y_SELF_TEST_GAUSS_F * 2.0f * 10.0f / xyz_total[Y]);
+    magGainf[Z] = abs(660.0f * HMC58X3_Z_SELF_TEST_GAUSS_F * 2.0f * 10.0f / xyz_total[Z]);
+#endif
 
     // leave test mode
     i2cWrite(MAG_ADDRESS, HMC58X3_R_CONFA, 0x70);   // Configuration Register A  -- 0 11 100 00  num samples: 8 ; output rate: 15Hz ; normal measurement mode
@@ -168,9 +185,15 @@ void hmc5883lInit(void)
     delay(100);
 
     if (!bret) {                // Something went wrong so get a best guess
-        magGain[X] = 1.0f;
-        magGain[Y] = 1.0f;
-        magGain[Z] = 1.0f;
+#if defined(MAG_USES_INT_MATH)
+        magGain[X] = MAG_GAIN_SCALE_FACTOR;
+        magGain[Y] = MAG_GAIN_SCALE_FACTOR;
+        magGain[Z] = MAG_GAIN_SCALE_FACTOR;
+#else
+        magGainf[X] = 1.0f;
+        magGainf[Y] = 1.0f;
+        magGainf[Z] = 1.0f;
+#endif
     }
 }
 
@@ -182,8 +205,16 @@ void hmc5883lRead(int16_t *magData)
     i2cRead(MAG_ADDRESS, MAG_DATA_REGISTER, 6, buf);
     // During calibration, magGain is 1.0, so the read returns normal non-calibrated values.
     // After calibration is done, magGain is set to calculated gain values.
-    mag[X] = (int16_t)(buf[0] << 8 | buf[1]) * magGain[X];
-    mag[Z] = (int16_t)(buf[2] << 8 | buf[3]) * magGain[Z];
-    mag[Y] = (int16_t)(buf[4] << 8 | buf[5]) * magGain[Y];
+#if defined(MAG_USES_INT_MATH)
+    mag[X] = DIVIDE_WITH_ROUNDING((int32_t)((int16_t)(buf[0] << 8) | buf[1]) * magGain[X], MAG_GAIN_SCALE_FACTOR);
+    mag[Z] = DIVIDE_WITH_ROUNDING((int32_t)((int16_t)(buf[2] << 8) | buf[3]) * magGain[Z], MAG_GAIN_SCALE_FACTOR);
+    mag[Y] = DIVIDE_WITH_ROUNDING((int32_t)((int16_t)(buf[4] << 8) | buf[5]) * magGain[Y], MAG_GAIN_SCALE_FACTOR);
+#else
+    mag[X] = LRINTF((float)((int16_t)(buf[0] << 8) | buf[1]) * magGainf[X]);
+    mag[Z] = LRINTF((float)((int16_t)(buf[2] << 8) | buf[3]) * magGainf[Z]);
+    mag[Y] = LRINTF((float)((int16_t)(buf[4] << 8) | buf[5]) * magGainf[Y]);
+#endif
+
     alignSensors(mag, magData, magAlign);
 }
+
