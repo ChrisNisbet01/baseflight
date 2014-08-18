@@ -14,7 +14,6 @@ int32_t baroPressure = 0;
 int32_t baroTemperature = 0;
 uint32_t baroPressureSum = 0;
 int32_t BaroAlt = 0;
-float sonarTransition = 0;
 int32_t baroAlt_offset = 0;
 int32_t sonarAlt = -1;         // in cm , -1 indicate sonar is not in range 
 int32_t EstAlt;                // in cm
@@ -378,9 +377,11 @@ int getEstimatedAltitude(void)
         BaroAlt = sonarAlt;
     } else {
         BaroAlt -= baroAlt_offset;
-        if (sonarAlt > 0) {
-            sonarTransition = (300 - sonarAlt) / 100.0f;
-            BaroAlt = sonarAlt * sonarTransition + BaroAlt * (1.0f - sonarTransition);
+        if (sonarAlt >= 200 && sonarAlt <= 300) {
+            int32_t sonarTransition;
+            
+            sonarTransition = 300 - sonarAlt;
+            BaroAlt = DIVIDE_WITH_ROUNDING( sonarAlt * sonarTransition + BaroAlt * (100 - sonarTransition), 100 );
         }
     }
 
