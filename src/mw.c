@@ -915,16 +915,16 @@ void loop(void)
 #ifdef GPS
         if (sensors(SENSOR_GPS)) {
             if ((f.GPS_HOME_MODE || f.GPS_HOLD_MODE) && f.GPS_FIX_HOME) {
-                float sin_yaw_y = sinf(heading * RAD);
-                float cos_yaw_x = cosf(heading * RAD);
+                int32_t sin_yaw_y = sini(heading, 1);
+                int32_t cos_yaw_x = cosi(heading, 1);
                 if (cfg.nav_slew_rate) {
                     nav_rated[LON] += constrain(wrap_18000(nav[LON] - nav_rated[LON]), -cfg.nav_slew_rate, cfg.nav_slew_rate); // TODO check this on uint8
                     nav_rated[LAT] += constrain(wrap_18000(nav[LAT] - nav_rated[LAT]), -cfg.nav_slew_rate, cfg.nav_slew_rate);
-                    GPS_angle[ROLL] = LRINTF((nav_rated[LON] * cos_yaw_x - nav_rated[LAT] * sin_yaw_y) / 10);
-                    GPS_angle[PITCH] = LRINTF((nav_rated[LON] * sin_yaw_y + nav_rated[LAT] * cos_yaw_x) / 10);
+                    GPS_angle[ROLL] = DIVIDE_WITH_ROUNDING(nav_rated[LON] * cos_yaw_x - nav_rated[LAT] * sin_yaw_y, SINE_RANGE * 10);
+                    GPS_angle[PITCH] = DIVIDE_WITH_ROUNDING(nav_rated[LON] * sin_yaw_y + nav_rated[LAT] * cos_yaw_x, SINE_RANGE * 10);
                 } else {
-                    GPS_angle[ROLL] = LRINTF((nav[LON] * cos_yaw_x - nav[LAT] * sin_yaw_y) / 10);
-                    GPS_angle[PITCH] = LRINTF((nav[LON] * sin_yaw_y + nav[LAT] * cos_yaw_x) / 10);
+                    GPS_angle[ROLL] = DIVIDE_WITH_ROUNDING(nav[LON] * cos_yaw_x - nav[LAT] * sin_yaw_y, SINE_RANGE * 10);
+                    GPS_angle[PITCH] = DIVIDE_WITH_ROUNDING(nav[LON] * sin_yaw_y + nav[LAT] * cos_yaw_x, SINE_RANGE * 10);
                 }
             }
         }
