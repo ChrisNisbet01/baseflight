@@ -110,7 +110,7 @@ typedef enum {
 
 typedef struct {
     const char *name;
-    const uint8_t type; // vartype_e
+    const vartype_e type;
     void *ptr;
     const int32_t min;
     const int32_t max;
