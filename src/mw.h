@@ -202,7 +202,7 @@ typedef struct config_t {
     uint8_t accxy_deadband;                 // set the acc deadband for xy-Axis
     uint8_t baro_tab_size;                  // size of baro filter array
     float baro_noise_lpf;                   // additional LPF to reduce baro noise
-    float baro_cf_vel;                      // apply Complimentary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity)
+    float baro_cf_vel;                      // apply Complementary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity)
     float baro_cf_alt;                      // apply CF to use ACC for height estimation
     float accz_lpf_cutoff;                  // cutoff frequency for the low pass filter used on the acc z-axis for althold in Hz
     uint8_t acc_unarmedcal;                 // turn automatic acc compensation on/off
