@@ -28,8 +28,8 @@ static uint8_t mpuLowPassFilter = MPU3050_DLPF_42HZ;
 static sensor_align_e gyroAlign = CW0_DEG;
 
 static void mpu3050Init(sensor_align_e align);
-static void mpu3050Read(int16_t *gyroData);
-static void mpu3050ReadTemp(int16_t *tempData);
+static void mpu3050Read(int32_t *gyroData);
+static void mpu3050ReadTemp(int32_t *tempData);
 
 bool mpu3050Detect(sensor_t *gyro, uint16_t lpf)
 {
@@ -93,10 +93,10 @@ static void mpu3050Init(sensor_align_e align)
 }
 
 // Read 3 gyro values into user-provided buffer. No overrun checking is done.
-static void mpu3050Read(int16_t *gyroData)
+static void mpu3050Read(int32_t *gyroData)
 {
     uint8_t buf[6];
-    int16_t data[3];
+    int32_t data[3];
 
     i2cRead(MPU3050_ADDRESS, MPU3050_GYRO_OUT, 6, buf);
     data[0] = (int16_t)((buf[0] << 8) | buf[1]) / 4;
@@ -106,7 +106,7 @@ static void mpu3050Read(int16_t *gyroData)
     alignSensors(data, gyroData, gyroAlign);
 }
 
-static void mpu3050ReadTemp(int16_t *tempData)
+static void mpu3050ReadTemp(int32_t *tempData)
 {
     uint8_t buf[2];
     i2cRead(MPU3050_ADDRESS, MPU3050_TEMP_OUT, 2, buf);

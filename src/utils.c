@@ -88,20 +88,9 @@ void initBoardAlignment(void)
 
 }
 
-void alignBoard(int16_t *vec)
+static void alignBoard(int32_t *vec)
 {
-    // TODO: change so that int32 values are passed in to save shifting values into temporary variables.
-    int32_t tmp[3];
-
-    tmp[0] = vec[0];
-    tmp[1] = vec[1];
-    tmp[2] = vec[2];
-
-    performRotation( &board_rotation, tmp );
-
-    vec[0] = tmp[0];
-    vec[1] = tmp[1];
-    vec[2] = tmp[2];
+    performRotation( &board_rotation, vec );
 }
 #else
 void initBoardAlignment(void)
@@ -148,11 +137,11 @@ void initBoardAlignment(void)
     boardRotation[2][2] = cosy * cosx;
 }
 
-void alignBoard(int16_t *vec)
+static void alignBoard(int32_t *vec)
 {
-    int16_t x = vec[X];
-    int16_t y = vec[Y];
-    int16_t z = vec[Z];
+    int32_t x = vec[X];
+    int32_t y = vec[Y];
+    int32_t z = vec[Z];
 
     vec[X] = LRINTF(boardRotation[0][0] * x + boardRotation[1][0] * y + boardRotation[2][0] * z);
     vec[Y] = LRINTF(boardRotation[0][1] * x + boardRotation[1][1] * y + boardRotation[2][1] * z);
@@ -160,7 +149,7 @@ void alignBoard(int16_t *vec)
 }
 #endif
 
-void alignSensors(int16_t *src, int16_t *dest, uint8_t rotation)
+void alignSensors(int32_t *src, int32_t *dest, uint8_t rotation)
 {
     switch (rotation) {
         case CW0_DEG:

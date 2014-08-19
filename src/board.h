@@ -159,7 +159,7 @@ typedef struct sensor_data_t {
 } sensor_data_t;
 
 typedef void (*sensorInitFuncPtr)(sensor_align_e align);   // sensor init prototype
-typedef void (*sensorReadFuncPtr)(int16_t *data);          // sensor read and align prototype
+typedef void (*sensorReadFuncPtr)(int32_t *data);          // sensor read and align prototype
 typedef void (*baroOpFuncPtr)(void);                       // baro start operation
 typedef void (*baroCalculateFuncPtr)(int32_t *pressure, int32_t *temperature);             // baro calculation (filled params are pressure and temperature)
 typedef void (*serialReceiveCallbackPtr)(uint16_t data);   // used by serial drivers to return frames to app

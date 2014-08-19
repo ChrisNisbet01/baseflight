@@ -5,7 +5,7 @@
 #define ACCELEROMETER_SMOOTH_SCALE_FACTOR   1024
 #define MAGNETOMETER_SMOOTH_SCALE_FACTOR   1024
 
-int16_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
+int32_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
 int32_t accSum[3];
 uint32_t accTimeSum = 0;        // keep track for integration of acc
 int accSumCount = 0;
