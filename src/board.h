@@ -13,6 +13,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 
 #include "stm32f10x_conf.h"
