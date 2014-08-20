@@ -508,13 +508,13 @@ void loop(void)
                 rcData[THROTTLE] = cfg.failsafe_throttle;
                 if (failsafeCnt > 5 * (cfg.failsafe_delay + cfg.failsafe_off_delay)) {  // Turn OFF motors after specified Time (in 0.1sec)
                     mwDisarm();             // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
-                    f.OK_TO_ARM = 0;        // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
+                    f.OK_TO_ARM = 0;        // to restart accidentally by just reconnecting to the tx - you will have to switch off first to rearm
                 }
                 failsafeEvents++;
             }
             if (failsafeCnt > (5 * cfg.failsafe_delay) && !f.ARMED) {  // Turn off "Ok To arm to prevent the motors from spinning after repowering the RX with low throttle and aux to arm
                 mwDisarm();         // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
-                f.OK_TO_ARM = 0;    // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
+                f.OK_TO_ARM = 0;    // to restart accidentally by just reconnect to the tx - you will have to switch off first to rearm
             }
             failsafeCnt++;
         }
@@ -847,7 +847,7 @@ void loop(void)
         currentTime = micros();
         cycleTime = (int32_t)(currentTime - previousTime);
         previousTime = currentTime;
-        // non IMU critical, temeperatur, serialcom
+        // non IMU critical, temperature, serialcom
          annexCode();
 #ifdef MAG
         if (sensors(SENSOR_MAG)) {
