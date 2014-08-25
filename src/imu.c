@@ -8,6 +8,7 @@
 #define MAGNETOMETER_SMOOTH_SCALE_FACTOR   1024
 
 int32_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
+static float accLPF[3];
 int32_t accSum[3];
 uint32_t accTimeSum = 0;        // keep track for integration of acc
 int accSumCount = 0;
@@ -38,6 +39,8 @@ int16_t gyroData[3] = { 0, 0, 0 };
 int16_t gyroZero[3] = { 0, 0, 0 };
 int16_t angle[2] = { 0, 0 };     // absolute angle inclination in multiple of 0.1 degree    180 deg = 1800
 float anglerad[2] = { 0.0f, 0.0f };    // absolute angle inclination in radians
+static t_fp_vector EstM;
+static t_fp_vector EstN = { .A = { 1.0f, 0.0f, 0.0f } };
 
 static IMU_DATA_ST imu_data;
 
@@ -249,13 +252,63 @@ static int16_t calculateHeading(t_fp_vector *vec)
     return head;
 }
 
+static void calculate_throttle_correction( void )
+{
+    if (cfg.throttle_correction_value) {
+
+        float cosZ = EstG.V.Z / sqrtf(EstG.V.X * EstG.V.X + EstG.V.Y * EstG.V.Y + EstG.V.Z * EstG.V.Z);
+        if (cosZ <= 0.015f) { // we are inverted, vertical or with a small angle < 0.86 deg
+            throttleAngleCorrection = 0;
+        } else {
+            int deg = DIVIDE_WITH_ROUNDING(acosi( LRINTF(cosZ*1000), 1000, 10 ) * throttleAngleScale, 100);
+
+            if (deg > 900)
+                deg = 900;
+            throttleAngleCorrection = DIVIDE_WITH_ROUNDING(cfg.throttle_correction_value * sini(deg, 10), SINE_RANGE );
+            // CN - not sure about what this is about, but as it is, won't give full correction. */
+            //throttleAngleCorrection = LRINTF(cfg.throttle_correction_value * sinf(deg / (900.0f * M_PI / 2.0f)));
+        }
+
+    }
+}
+
+static void calculate_heading( float *deltaGyroAngle )
+{
+    int axis;
+    
+    if (sensors(SENSOR_MAG)) {
+        rotateV(&EstM.V, deltaGyroAngle);
+        for (axis = 0; axis < 3; axis++)
+            EstM.A[axis] = (EstM.A[axis] * (float)mcfg.gyro_cmpfm_factor + magADC[axis]) * INV_GYR_CMPFM_FACTOR;
+        heading = calculateHeading(&EstM);
+    } else {
+        rotateV(&EstN.V, deltaGyroAngle);
+        normalizeV(&EstN.V, &EstN.V);
+        heading = calculateHeading(&EstN);
+    }
+
+}
+
+static void smooth_accADC( void )
+{
+    int axis;
+
+    for( axis = 0; axis < 3; axis++ )
+    {
+        if (cfg.acc_lpf_factor > 0) 
+        {
+            accLPF[axis] = accLPF[axis] * (1.0f - (1.0f / cfg.acc_lpf_factor)) + accADC[axis] * (1.0f / cfg.acc_lpf_factor);
+            accSmooth[axis] = LRINTF(accLPF[axis]);
+        } 
+        else 
+            accSmooth[axis] = accADC[axis];
+    }
+}
+
 static void getEstimatedAttitude(void)
 {
-    int32_t axis;
+    int axis;
     int32_t accMag = 0;
-    static t_fp_vector EstM;
-    static t_fp_vector EstN = { .A = { 1.0f, 0.0f, 0.0f } };
-    static float accLPF[3];
     static uint32_t previousT;
     uint32_t currentT = micros();
     uint32_t deltaT;
@@ -264,22 +317,11 @@ static void getEstimatedAttitude(void)
     deltaT = currentT - previousT;
     scale = deltaT * gyro.scale;
     previousT = currentT;
-    float gyrox_dps;
-    float gyroy_dps;
-
-    gyrox_dps = (float)gyroADC[X] * 4.0f/16.4f;
-    gyroy_dps = (float)gyroADC[Y] * 4.0f/16.4f;
-    do_attitude_estimation( &imu_data, (float)deltaT/1000000.0f, gyrox_dps, gyroy_dps, accADC[X], accADC[Y], accADC[Z] );
 
     // Initialization
+    smooth_accADC();
     for (axis = 0; axis < 3; axis++) {
         deltaGyroAngle[axis] = gyroADC[axis] * scale;
-        if (cfg.acc_lpf_factor > 0) {
-            accLPF[axis] = accLPF[axis] * (1.0f - (1.0f / cfg.acc_lpf_factor)) + accADC[axis] * (1.0f / cfg.acc_lpf_factor);
-            accSmooth[axis] = LRINTF(accLPF[axis]);
-        } else {
-            accSmooth[axis] = accADC[axis];
-        }
         accMag += (int32_t)accSmooth[axis] * accSmooth[axis];
     }
     accMag = accMag * 100 / ((int32_t)acc_1G * acc_1G);
@@ -304,40 +346,28 @@ static void getEstimatedAttitude(void)
     angle[PITCH] = LRINTF(anglerad[PITCH] * (1800.0f / M_PI));
 
     /* temp debug override usual values */
+    {
+    float gyrox_dps;
+    float gyroy_dps;
+
+    gyrox_dps = (float)gyroADC[X] * 4.0f/16.4f;
+    gyroy_dps = (float)gyroADC[Y] * 4.0f/16.4f;
+    do_attitude_estimation( &imu_data, (float)deltaT/1000000.0f, gyrox_dps, gyroy_dps, accADC[X], accADC[Y], accADC[Z] );
+
     angle[ROLL] = LRINTF(imu_data.kalAngleX*10.0f);
     angle[PITCH] = LRINTF(imu_data.kalAngleY*10.0f);
     anglerad[ROLL] = imu_data.kalAngleX * M_PI/180.0f;
     anglerad[PITCH] = imu_data.kalAngleY * M_PI/180.0f;
-
-    if (sensors(SENSOR_MAG)) {
-        rotateV(&EstM.V, deltaGyroAngle);
-        for (axis = 0; axis < 3; axis++)
-            EstM.A[axis] = (EstM.A[axis] * (float)mcfg.gyro_cmpfm_factor + magADC[axis]) * INV_GYR_CMPFM_FACTOR;
-        heading = calculateHeading(&EstM);
-    } else {
-        rotateV(&EstN.V, deltaGyroAngle);
-        normalizeV(&EstN.V, &EstN.V);
-        heading = calculateHeading(&EstN);
+    debug[0] = LRINTF(imu_data.kalAngleY);
+    debug[1] = LRINTF(imu_data.compAngleY);
+    debug[2] = LRINTF(imu_data.gyroYangle);
     }
+    
+    calculate_heading(deltaGyroAngle);
 
     acc_calc(deltaT); // rotate acc vector into earth frame
 
-    if (cfg.throttle_correction_value) {
-
-        float cosZ = EstG.V.Z / sqrtf(EstG.V.X * EstG.V.X + EstG.V.Y * EstG.V.Y + EstG.V.Z * EstG.V.Z);
-        if (cosZ <= 0.015f) { // we are inverted, vertical or with a small angle < 0.86 deg
-            throttleAngleCorrection = 0;
-        } else {
-            int deg = DIVIDE_WITH_ROUNDING(acosi( LRINTF(cosZ*1000), 1000, 10 ) * throttleAngleScale, 100);
-
-            if (deg > 900)
-                deg = 900;
-            throttleAngleCorrection = DIVIDE_WITH_ROUNDING(cfg.throttle_correction_value * sini(deg, 10), SINE_RANGE );
-            // CN - not sure about what this is about, but as it is, won't give full correction. */
-            //throttleAngleCorrection = LRINTF(cfg.throttle_correction_value * sinf(deg / (900.0f * M_PI / 2.0f)));
-        }
-
-    }
+    calculate_throttle_correction();
 }
 
 #ifdef BARO
