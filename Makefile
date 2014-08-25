@@ -42,6 +42,8 @@ BIN_DIR		 = $(ROOT)/obj
 
 # Source files common to all targets
 COMMON_SRC	 = buzzer.c \
+		   kalman.c \
+		   attitude_estimation.c \
 		   sini.c \
 		   i64sqrt.c \
 		   i32sqrt.c \

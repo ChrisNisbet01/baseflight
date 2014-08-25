@@ -1,6 +1,8 @@
 #include "board.h"
 #include "mw.h"
 
+#include "attitude_estimation.h"
+
 #define GYRO_DPS_SCALE_FACTOR   100
 #define ACCELEROMETER_SMOOTH_SCALE_FACTOR   1024
 #define MAGNETOMETER_SMOOTH_SCALE_FACTOR   1024
@@ -37,6 +39,8 @@ int16_t gyroZero[3] = { 0, 0, 0 };
 int16_t angle[2] = { 0, 0 };     // absolute angle inclination in multiple of 0.1 degree    180 deg = 1800
 float anglerad[2] = { 0.0f, 0.0f };    // absolute angle inclination in radians
 
+static IMU_DATA_ST imu_data;
+
 static void getEstimatedAttitude(void);
 
 void imuInit(void)
@@ -52,6 +56,9 @@ void imuInit(void)
     if (sensors(SENSOR_MAG))
         Mag_init();
 #endif
+
+    init_attitude_estimation( &imu_data, 0.03f, 0.03f );
+
 }
 
 void computeIMU(void)
@@ -257,6 +264,12 @@ static void getEstimatedAttitude(void)
     deltaT = currentT - previousT;
     scale = deltaT * gyro.scale;
     previousT = currentT;
+    float gyrox_dps;
+    float gyroy_dps;
+
+    gyrox_dps = (float)gyroADC[X] * 4.0f/16.4f;
+    gyroy_dps = (float)gyroADC[Y] * 4.0f/16.4f;
+    do_attitude_estimation( &imu_data, (float)deltaT/1000000.0f, gyrox_dps, gyroy_dps, accADC[X], accADC[Y], accADC[Z] );
 
     // Initialization
     for (axis = 0; axis < 3; axis++) {
@@ -272,9 +285,11 @@ static void getEstimatedAttitude(void)
     accMag = accMag * 100 / ((int32_t)acc_1G * acc_1G);
 
     rotateV(&EstG.V, deltaGyroAngle);
+
     // Apply complementary filter (Gyro drift correction)
     // If accel magnitude >1.15G or <0.85G and ACC vector outside of the limit range => we neutralize the effect of accelerometers in the angle estimation.
     // To do that, we just skip filter, as EstV already rotated by Gyro
+    // sqrt(0.72) == 0.85. sqrt(1.33) == 1.15
     if (72 < (uint16_t)accMag && (uint16_t)accMag < 133) {
         for (axis = 0; axis < 3; axis++)
             EstG.A[axis] = (EstG.A[axis] * (float)mcfg.gyro_cmpf_factor + accSmooth[axis]) * INV_GYR_CMPF_FACTOR;
@@ -287,6 +302,12 @@ static void getEstimatedAttitude(void)
     anglerad[PITCH] = atan2f(-EstG.V.X, sqrtf(EstG.V.Y * EstG.V.Y + EstG.V.Z * EstG.V.Z));
     angle[ROLL] = LRINTF(anglerad[ROLL] * (1800.0f / M_PI));
     angle[PITCH] = LRINTF(anglerad[PITCH] * (1800.0f / M_PI));
+
+    /* temp debug override usual values */
+    angle[ROLL] = LRINTF(imu_data.kalAngleX*10.0f);
+    angle[PITCH] = LRINTF(imu_data.kalAngleY*10.0f);
+    anglerad[ROLL] = imu_data.kalAngleX * M_PI/180.0f;
+    anglerad[PITCH] = imu_data.kalAngleY * M_PI/180.0f;
 
     if (sensors(SENSOR_MAG)) {
         rotateV(&EstM.V, deltaGyroAngle);
