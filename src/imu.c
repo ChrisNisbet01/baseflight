@@ -3,6 +3,19 @@
 
 #include "attitude_estimation.h"
 
+typedef struct fp_vector {
+    float X;
+    float Y;
+    float Z;
+} t_fp_vector_def;
+
+typedef union {
+    float A[3];
+    t_fp_vector_def V;
+} t_fp_vector;
+t_fp_vector EstG;
+
+
 #define GYRO_DPS_SCALE_FACTOR   100
 #define ACCELEROMETER_SMOOTH_SCALE_FACTOR   1024
 #define MAGNETOMETER_SMOOTH_SCALE_FACTOR   1024
@@ -35,7 +48,7 @@ float accVelScale;
 // **************
 // gyro+acc IMU
 // **************
-int16_t gyroData[3] = { 0, 0, 0 };
+int16_t gyroData[3] = { 0, 0, 0 };  /* +- 8192 == +-2000 deg/sec */
 int16_t gyroZero[3] = { 0, 0, 0 };
 int16_t angle[2] = { 0, 0 };     // absolute angle inclination in multiple of 0.1 degree    180 deg = 1800
 float anglerad[2] = { 0.0f, 0.0f };    // absolute angle inclination in radians
@@ -72,6 +85,8 @@ void computeIMU(void)
     if (sensors(SENSOR_ACC)) {
         ACC_getADC();
         getEstimatedAttitude();
+        /* calculate throttle correction after attitude has been estimated */
+        calculate_throttle_correction();
     } else {
         accADC[X] = 0;
         accADC[Y] = 0;
@@ -104,19 +119,6 @@ void computeIMU(void)
 
 #define INV_GYR_CMPF_FACTOR   (1.0f / ((float)mcfg.gyro_cmpf_factor + 1.0f))
 #define INV_GYR_CMPFM_FACTOR  (1.0f / ((float)mcfg.gyro_cmpfm_factor + 1.0f))
-
-typedef struct fp_vector {
-    float X;
-    float Y;
-    float Z;
-} t_fp_vector_def;
-
-typedef union {
-    float A[3];
-    t_fp_vector_def V;
-} t_fp_vector;
-t_fp_vector EstG;
-
 
 // Normalize a vector
 void normalizeV(struct fp_vector *src, struct fp_vector *dest)
@@ -358,16 +360,12 @@ static void getEstimatedAttitude(void)
     angle[PITCH] = LRINTF(imu_data.kalAngleY*10.0f);
     anglerad[ROLL] = imu_data.kalAngleX * M_PI/180.0f;
     anglerad[PITCH] = imu_data.kalAngleY * M_PI/180.0f;
-    debug[0] = LRINTF(imu_data.kalAngleY);
-    debug[1] = LRINTF(imu_data.compAngleY);
-    debug[2] = LRINTF(imu_data.gyroYangle);
     }
     
     calculate_heading(deltaGyroAngle);
 
     acc_calc(deltaT); // rotate acc vector into earth frame
 
-    calculate_throttle_correction();
 }
 
 #ifdef BARO

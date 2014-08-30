@@ -52,8 +52,8 @@ uint16_t GPS_altitude, GPS_speed;   // altitude in 0.1m and speed in 0.1m/s
 uint8_t GPS_update = 0;             // it's a binary toogle to distinct a GPS position update
 int16_t GPS_angle[2] = { 0, 0 };    // it's the angles that must be applied for GPS correction
 uint16_t GPS_ground_course = 0;     // degrees * 10
-int16_t nav[2];
-int16_t nav_rated[2];               // Adding a rate controller to the navigation to make it smoother
+int32_t nav[2];
+int32_t nav_rated[2];               // Adding a rate controller to the navigation to make it smoother
 int8_t nav_mode = NAV_MODE_NONE;    // Navigation mode
 uint8_t GPS_numCh;                  // Number of channels
 uint8_t GPS_svinfo_chn[16];         // Channel number
@@ -154,7 +154,7 @@ void annexCode(void)
         float radDiff = (heading - headFreeModeHold) * M_PI / 180.0f;
         float cosDiff = cosf(radDiff);
         float sinDiff = sinf(radDiff);
-        int16_t rcCommand_PITCH = rcCommand[PITCH] * cosDiff + rcCommand[ROLL] * sinDiff;
+        int32_t rcCommand_PITCH = rcCommand[PITCH] * cosDiff + rcCommand[ROLL] * sinDiff;
         rcCommand[ROLL] = rcCommand[ROLL] * cosDiff - rcCommand[PITCH] * sinDiff;
         rcCommand[PITCH] = rcCommand_PITCH;
     }
@@ -305,7 +305,7 @@ static int32_t errorAngleI[2] = { 0, 0 };
 
 static void pidMultiWii(void)
 {
-    int axis, prop;
+    int axis;
     int32_t error, errorAngle;
     int32_t PTerm, ITerm, PTermACC = 0, ITermACC = 0, PTermGYRO = 0, ITermGYRO = 0, DTerm;
     static int16_t lastGyro[3] = { 0, 0, 0 };
@@ -314,7 +314,6 @@ static void pidMultiWii(void)
     int32_t delta;
 
     // **** PITCH & ROLL & YAW PID ****
-    prop = max(abs(rcCommand[PITCH]), abs(rcCommand[ROLL])); // range [0;500]
     for (axis = 0; axis < 3; axis++) {
         if ((f.ANGLE_MODE || f.HORIZON_MODE) && axis < 2) { // MODE relying on ACC
             // 50 degrees max inclination
@@ -325,9 +324,13 @@ static void pidMultiWii(void)
             errorAngleI[axis] = constrain(errorAngleI[axis] + errorAngle, -10000, +10000); // WindUp
             ITermACC = (errorAngleI[axis] * cfg.I8[PIDLEVEL]) >> 12;
         }
+        /* 
+            Hmm, in HORIZON mode, errorGyroI is updated by angle error AND gyro error. Is this what we want? 
+            I guess so as this mode uses a mix of angle and gyro.
+        */
         if (!f.ANGLE_MODE || f.HORIZON_MODE || axis == 2) { // MODE relying on GYRO or YAW axis
             error = (int32_t)rcCommand[axis] * 10 * 8 / cfg.P8[axis];
-            error -= gyroData[axis];
+            error -= gyroData[axis];    /* be nice if gyroData in in standard units, not +- 8192 */
 
             PTermGYRO = rcCommand[axis];
 
@@ -336,26 +339,38 @@ static void pidMultiWii(void)
                 errorGyroI[axis] = 0;
             ITermGYRO = (errorGyroI[axis] / 125 * cfg.I8[axis]) >> 6;
         }
-        if (f.HORIZON_MODE && axis < 2) {
+
+        if (axis == 2 || (f.HORIZON_MODE == 0 && f.ANGLE_MODE == 0)) {
+            PTerm = PTermGYRO;
+            ITerm = ITermGYRO;
+        } else if (f.HORIZON_MODE) {
+            int prop;
+            
+            prop = max(abs(rcCommand[PITCH]), abs(rcCommand[ROLL])); // range [0;500]
             PTerm = (PTermACC * (500 - prop) + PTermGYRO * prop) / 500;
             ITerm = (ITermACC * (500 - prop) + ITermGYRO * prop) / 500;
-        } else {
-            if (f.ANGLE_MODE && axis < 2) {
-                PTerm = PTermACC;
-                ITerm = ITermACC;
-            } else {
-                PTerm = PTermGYRO;
-                ITerm = ITermGYRO;
-            }
+        }
+        else {  /* ANGLE_MODE */
+            PTerm = PTermACC;
+            ITerm = ITermACC;
         }
 
         PTerm -= (int32_t)gyroData[axis] * dynP8[axis] / 10 / 8; // 32 bits is needed for calculation
+
+        /* 
+            D term always using gyro only. No accelerometer.
+            Note: D term calculation not based upon setpoint.
+        */
         delta = gyroData[axis] - lastGyro[axis];
         lastGyro[axis] = gyroData[axis];
+
+        /* using average of last three deltas */
         deltaSum = delta1[axis] + delta2[axis] + delta;
         delta2[axis] = delta1[axis];
         delta1[axis] = delta;
+
         DTerm = (deltaSum * dynD8[axis]) / 32;
+
         axisPID[axis] = PTerm + ITerm - DTerm;
     }
 }
