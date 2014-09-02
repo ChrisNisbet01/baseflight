@@ -326,7 +326,7 @@ static void pidMultiWii(void)
         }
         if (!f.ANGLE_MODE || f.HORIZON_MODE || axis == 2) { // MODE relying on GYRO or YAW axis
             error = (int32_t)rcCommand[axis] * 10 * 8 / cfg.P8[axis];
-            error -= gyroData[axis];    /* be nice if gyroData in in standard units, not +- 8192 */
+            error -= gyroData[axis];    /* be nice if gyroData is in standard units, not +- 8192 */
 
             PTermGYRO = rcCommand[axis];
 

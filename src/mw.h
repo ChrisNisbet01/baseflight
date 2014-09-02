@@ -61,9 +61,9 @@ typedef enum GimbalFlags {
 
 /*********** RC alias *****************/
 enum {
-    ROLL = 0,
-    PITCH,
-    YAW,
+    ROLL = 0,   /* XXX used as index into array, so don't renumber */
+    PITCH,      /* XXX used as index into array, so don't renumber */
+    YAW,        /* XXX used as index into array, so don't renumber */
     THROTTLE,
     AUX1,
     AUX2,
