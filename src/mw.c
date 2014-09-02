@@ -308,7 +308,7 @@ static void pidMultiWii(void)
     int axis;
     int32_t error, errorAngle;
     int32_t PTerm, ITerm, PTermACC = 0, ITermACC = 0, PTermGYRO = 0, ITermGYRO = 0, DTerm;
-    static int16_t lastGyro[3] = { 0, 0, 0 };
+    static int32_t lastGyro[3] = { 0, 0, 0 };
     static int32_t delta1[3], delta2[3];
     int32_t deltaSum;
     int32_t delta;
@@ -324,10 +324,6 @@ static void pidMultiWii(void)
             errorAngleI[axis] = constrain(errorAngleI[axis] + errorAngle, -10000, +10000); // WindUp
             ITermACC = (errorAngleI[axis] * cfg.I8[PIDLEVEL]) >> 12;
         }
-        /* 
-            Hmm, in HORIZON mode, errorGyroI is updated by angle error AND gyro error. Is this what we want? 
-            I guess so as this mode uses a mix of angle and gyro.
-        */
         if (!f.ANGLE_MODE || f.HORIZON_MODE || axis == 2) { // MODE relying on GYRO or YAW axis
             error = (int32_t)rcCommand[axis] * 10 * 8 / cfg.P8[axis];
             error -= gyroData[axis];    /* be nice if gyroData in in standard units, not +- 8192 */
