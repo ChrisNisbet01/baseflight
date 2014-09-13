@@ -58,6 +58,7 @@ static t_fp_vector EstN = { .A = { 1.0f, 0.0f, 0.0f } };
 static IMU_DATA_ST imu_data;
 
 static void getEstimatedAttitude(void);
+static void calculate_throttle_correction( void );
 
 void imuInit(void)
 {
@@ -347,6 +348,7 @@ static void getEstimatedAttitude(void)
     angle[ROLL] = LRINTF(anglerad[ROLL] * (1800.0f / M_PI));
     angle[PITCH] = LRINTF(anglerad[PITCH] * (1800.0f / M_PI));
 
+#if 0
     /* temp debug override usual values */
     {
     float gyrox_dps;
@@ -361,7 +363,8 @@ static void getEstimatedAttitude(void)
     anglerad[ROLL] = imu_data.kalAngleX * M_PI/180.0f;
     anglerad[PITCH] = imu_data.kalAngleY * M_PI/180.0f;
     }
-    
+#endif
+
     calculate_heading(deltaGyroAngle);
 
     acc_calc(deltaT); // rotate acc vector into earth frame

@@ -47,9 +47,6 @@ void init_attitude_estimation( IMU_DATA_ST *pdata, float CF_X_factor, float CF_Y
 
 	CFX = CF_X_factor;
 	CFY = CF_Y_factor;
-	/* temp debug */
-	CFX = 0.03f;
-	CFY = 0.03f;
 }
 
 void do_attitude_estimation( IMU_DATA_ST *pdata, float dt, float gyroXrate, float gyroYrate, int32_t accX, int32_t accY, int32_t accZ )

@@ -419,9 +419,9 @@ extern uint16_t GPS_altitude,GPS_speed;                      // altitude in 0.1m
 extern uint8_t  GPS_update;                                  // it's a binary toogle to distinct a GPS position update
 extern int16_t  GPS_angle[2];                                // it's the angles that must be applied for GPS correction
 extern uint16_t GPS_ground_course;                           // degrees*10
-extern int16_t  nav[2];
+extern int32_t  nav[2];
 extern int8_t   nav_mode;                                    // Navigation mode
-extern int16_t  nav_rated[2];                                // Adding a rate controller to the navigation to make it smoother
+extern int32_t  nav_rated[2];                                // Adding a rate controller to the navigation to make it smoother
 extern uint8_t  GPS_numCh;                                   // Number of channels
 extern uint8_t  GPS_svinfo_chn[16];                          // Channel number
 extern uint8_t  GPS_svinfo_svid[16];                         // Satellite ID
