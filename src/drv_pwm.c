@@ -278,7 +278,7 @@ static void failsafeCheck(uint8_t channel, uint16_t pulse)
 
     if (channel < 4 && pulse > failsafeThreshold)
         goodPulses |= (1 << channel);       // if signal is valid - mark channel as OK
-    if (goodPulses == 0x0F) {               // If first four chanells have good pulses, clear FailSafe counter
+    if (goodPulses == 0x0F) {               // If first four channels have good pulses, clear FailSafe counter
         goodPulses = 0;
         if (failsafeCnt > 20)
             failsafeCnt -= 20;

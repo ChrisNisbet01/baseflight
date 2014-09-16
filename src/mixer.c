@@ -13,65 +13,134 @@ int16_t servo[MAX_SERVOS] = { 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500 };
 static motorMixer_t currentMixer[MAX_MOTORS];
 
 static const motorMixer_t mixerTri[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,     0,       1333,     0 },     // REAR
+    { 1000, -1000,       -667,     0 },     // RIGHT
+    { 1000,  1000,       -667,     0 },     // LEFT
+#else
     { 1.0f,  0.0f,  1.333333f,  0.0f },     // REAR
     { 1.0f, -1.0f, -0.666667f,  0.0f },     // RIGHT
     { 1.0f,  1.0f, -0.666667f,  0.0f },     // LEFT
+#endif
 };
 
 static const motorMixer_t mixerQuadP[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,     0,  1000, -1000 },          // REAR
+    { 1000, -1000,     0,  1000 },          // RIGHT
+    { 1000,  1000,     0,  1000 },          // LEFT
+    { 1000,     0, -1000, -1000 },          // FRONT
+#else
     { 1.0f,  0.0f,  1.0f, -1.0f },          // REAR
     { 1.0f, -1.0f,  0.0f,  1.0f },          // RIGHT
     { 1.0f,  1.0f,  0.0f,  1.0f },          // LEFT
     { 1.0f,  0.0f, -1.0f, -1.0f },          // FRONT
+#endif
 };
 
 static const motorMixer_t mixerQuadX[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000, -1000,  1000, -1000 },          // REAR_R
+    { 1000, -1000, -1000,  1000 },          // FRONT_R
+    { 1000, 1000,   1000,  1000 },          // REAR_L
+    { 1000, 1000,  -1000, -1000 },          // FRONT_L
+#else
     { 1.0f, -1.0f,  1.0f, -1.0f },          // REAR_R
     { 1.0f, -1.0f, -1.0f,  1.0f },          // FRONT_R
     { 1.0f,  1.0f,  1.0f,  1.0f },          // REAR_L
     { 1.0f,  1.0f, -1.0f, -1.0f },          // FRONT_L
+#endif
 };
 
 static const motorMixer_t mixerBi[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,  1000,     0,     0 },          // LEFT
+    { 1000, -1000,     0,     0 },          // RIGHT
+#else
     { 1.0f,  1.0f,  0.0f,  0.0f },          // LEFT
     { 1.0f, -1.0f,  0.0f,  0.0f },          // RIGHT
+#endif
 };
 
 static const motorMixer_t mixerY6[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,     0,       1333,  1000 },     // REAR
+    { 1000, -1000,       -667, -1000 },     // RIGHT
+    { 1000,  1000,       -667, -1000 },     // LEFT
+    { 1000,     0,       1333, -1000 },     // UNDER_REAR
+    { 1000, -1000,       -667,  1000 },     // UNDER_RIGHT
+    { 1000,  1000,       -667,  1000 },     // UNDER_LEFT
+#else
     { 1.0f,  0.0f,  1.333333f,  1.0f },     // REAR
     { 1.0f, -1.0f, -0.666667f, -1.0f },     // RIGHT
     { 1.0f,  1.0f, -0.666667f, -1.0f },     // LEFT
     { 1.0f,  0.0f,  1.333333f, -1.0f },     // UNDER_REAR
     { 1.0f, -1.0f, -0.666667f,  1.0f },     // UNDER_RIGHT
     { 1.0f,  1.0f, -0.666667f,  1.0f },     // UNDER_LEFT
+#endif
 };
 
 static const motorMixer_t mixerHex6P[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,       -866,   500,  1000 },     // REAR_R
+    { 1000,       -866,  -500, -1000 },     // FRONT_R
+    { 1000,        866,   500,  1000 },     // REAR_L
+    { 1000,        866,  -500, -1000 },     // FRONT_L
+    { 1000,          0, -1000,  1000 },     // FRONT
+    { 1000,          0,  1000, -1000 },     // REAR
+#else
     { 1.0f, -0.866025f,  0.5f,  1.0f },     // REAR_R
     { 1.0f, -0.866025f, -0.5f, -1.0f },     // FRONT_R
     { 1.0f,  0.866025f,  0.5f,  1.0f },     // REAR_L
     { 1.0f,  0.866025f, -0.5f, -1.0f },     // FRONT_L
     { 1.0f,  0.0f,      -1.0f,  1.0f },     // FRONT
     { 1.0f,  0.0f,       1.0f, -1.0f },     // REAR
+#endif
 };
 
 static const motorMixer_t mixerY4[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,     0,  1000, -1000 },          // REAR_TOP CW
+    { 1000, -1000, -1000,     0 },          // FRONT_R CCW
+    { 1000,     0,  1000,  1000 },          // REAR_BOTTOM CCW
+    { 1000,  1000, -1000,     0 },          // FRONT_L CW
+#else
     { 1.0f,  0.0f,  1.0f, -1.0f },          // REAR_TOP CW
     { 1.0f, -1.0f, -1.0f,  0.0f },          // FRONT_R CCW
     { 1.0f,  0.0f,  1.0f,  1.0f },          // REAR_BOTTOM CCW
     { 1.0f,  1.0f, -1.0f,  0.0f },          // FRONT_L CW
+#endif
 };
 
 static const motorMixer_t mixerHex6X[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,  -500,        866,  1000 },     // REAR_R
+    { 1000,  -500,       -866,  1000 },     // FRONT_R
+    { 1000,   500,        866, -1000 },     // REAR_L
+    { 1000,   500,       -866, -1000 },     // FRONT_L
+    { 1000, -1000,          0, -1000 },     // RIGHT
+    { 1000,  1000,          0,  1000 },     // LEFT
+#else
     { 1.0f, -0.5f,  0.866025f,  1.0f },     // REAR_R
     { 1.0f, -0.5f, -0.866025f,  1.0f },     // FRONT_R
     { 1.0f,  0.5f,  0.866025f, -1.0f },     // REAR_L
     { 1.0f,  0.5f, -0.866025f, -1.0f },     // FRONT_L
     { 1.0f, -1.0f,  0.0f,      -1.0f },     // RIGHT
     { 1.0f,  1.0f,  0.0f,       1.0f },     // LEFT
+#endif
 };
 
 static const motorMixer_t mixerOctoX8[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000, -1000,  1000, -1000 },          // REAR_R
+    { 1000, -1000, -1000,  1000 },          // FRONT_R
+    { 1000,  1000,  1000,  1000 },          // REAR_L
+    { 1000,  1000, -1000, -1000 },          // FRONT_L
+    { 1000, -1000,  1000,  1000 },          // UNDER_REAR_R
+    { 1000, -1000, -1000, -1000 },          // UNDER_FRONT_R
+    { 1000,  1000,  1000, -1000 },          // UNDER_REAR_L
+    { 1000,  1000, -1000,  1000 },          // UNDER_FRONT_L
+#else
     { 1.0f, -1.0f,  1.0f, -1.0f },          // REAR_R
     { 1.0f, -1.0f, -1.0f,  1.0f },          // FRONT_R
     { 1.0f,  1.0f,  1.0f,  1.0f },          // REAR_L
@@ -80,9 +149,20 @@ static const motorMixer_t mixerOctoX8[] = {
     { 1.0f, -1.0f, -1.0f, -1.0f },          // UNDER_FRONT_R
     { 1.0f,  1.0f,  1.0f, -1.0f },          // UNDER_REAR_L
     { 1.0f,  1.0f, -1.0f,  1.0f },          // UNDER_FRONT_L
+#endif
 };
 
 static const motorMixer_t mixerOctoFlatP[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,        707,       -707,  1000 },    // FRONT_L
+    { 1000,       -707,       -707,  1000 },    // FRONT_R
+    { 1000,       -707,        707,  1000 },    // REAR_R
+    { 1000,        707,        707,  1000 },    // REAR_L
+    { 1000,          0,      -1000, -1000 },    // FRONT
+    { 1000,      -1000,          0, -1000 },    // RIGHT
+    { 1000,          0,       1000, -1000 },    // REAR
+    { 1000,       1000,          0, -1000 },    // LEFT
+#else
     { 1.0f,  0.707107f, -0.707107f,  1.0f },    // FRONT_L
     { 1.0f, -0.707107f, -0.707107f,  1.0f },    // FRONT_R
     { 1.0f, -0.707107f,  0.707107f,  1.0f },    // REAR_R
@@ -91,9 +171,20 @@ static const motorMixer_t mixerOctoFlatP[] = {
     { 1.0f, -1.0f,  0.0f, -1.0f },              // RIGHT
     { 1.0f,  0.0f,  1.0f, -1.0f },              // REAR
     { 1.0f,  1.0f,  0.0f, -1.0f },              // LEFT
+#endif
 };
 
 static const motorMixer_t mixerOctoFlatX[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,  1000,  -500,  1000 },          // MIDFRONT_L
+    { 1000,  -500, -1000,  1000 },          // FRONT_R
+    { 1000, -1000,   500,  1000 },          // MIDREAR_R
+    { 1000,   500,  1000,  1000 },          // REAR_L
+    { 1000,   500, -1000, -1000 },          // FRONT_L
+    { 1000, -1000,  -500, -1000 },          // MIDFRONT_R
+    { 1000,  -500,  1000, -1000 },          // REAR_R
+    { 1000,  1000,   500, -1000 },          // MIDREAR_L
+#else
     { 1.0f,  1.0f, -0.5f,  1.0f },          // MIDFRONT_L
     { 1.0f, -0.5f, -1.0f,  1.0f },          // FRONT_R
     { 1.0f, -1.0f,  0.5f,  1.0f },          // MIDREAR_R
@@ -102,27 +193,49 @@ static const motorMixer_t mixerOctoFlatX[] = {
     { 1.0f, -1.0f, -0.5f, -1.0f },          // MIDFRONT_R
     { 1.0f, -0.5f,  1.0f, -1.0f },          // REAR_R
     { 1.0f,  1.0f,  0.5f, -1.0f },          // MIDREAR_L
+#endif
 };
 
 static const motorMixer_t mixerVtail4[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,     0,  1000,  1000 },          // REAR_R
+    { 1000, -1000, -1000,     0 },          // FRONT_R
+    { 1000,     0,  1000, -1000 },          // REAR_L
+    { 1000,  1000, -1000,     0 },          // FRONT_L
+#else
     { 1.0f,  0.0f,  1.0f,  1.0f },          // REAR_R
     { 1.0f, -1.0f, -1.0f,  0.0f },          // FRONT_R
     { 1.0f,  0.0f,  1.0f, -1.0f },          // REAR_L
-    { 1.0f,  1.0f, -1.0f, -0.0f },          // FRONT_L
+    { 1.0f,  1.0f, -1.0f,  0.0f },          // FRONT_L
+#endif
 };
 
 static const motorMixer_t mixerHex6H[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000, -1000,  1000, -1000 },     // REAR_R
+    { 1000, -1000, -1000,  1000 },     // FRONT_R
+    { 1000,  1000,  1000,  1000 },     // REAR_L
+    { 1000,  1000, -1000, -1000 },     // FRONT_L
+    { 1000,     0,     0,     0 },     // RIGHT
+    { 1000,     0,     0,     0 },     // LEFT
+#else
     { 1.0f, -1.0f,  1.0f, -1.0f },     // REAR_R
     { 1.0f, -1.0f, -1.0f,  1.0f },     // FRONT_R
     { 1.0f,  1.0f,  1.0f,  1.0f },     // REAR_L
     { 1.0f,  1.0f, -1.0f, -1.0f },     // FRONT_L
     { 1.0f,  0.0f,  0.0f,  0.0f },     // RIGHT
     { 1.0f,  0.0f,  0.0f,  0.0f },     // LEFT
+#endif
 };
 
 static const motorMixer_t mixerDualcopter[] = {
+#if defined(MIXER_USES_INTEGER_MATH)
+    { 1000,     0,     0, -1000 },          // LEFT
+    { 1000,     0,     0,  1000 },          // RIGHT
+#else
     { 1.0f,  0.0f,  0.0f, -1.0f },          // LEFT
     { 1.0f,  0.0f,  0.0f,  1.0f },          // RIGHT
+#endif
 };
 
 // Keep this synced with MultiType struct in mw.h!
@@ -191,7 +304,11 @@ void mixerInit(void)
         // load custom mixer into currentMixer
         for (i = 0; i < MAX_MOTORS; i++) {
             // check if done
+#if defined(MIXER_USES_INTEGER_MATH)
+            if (mcfg.customMixer[i].throttle == 0)
+#else
             if (mcfg.customMixer[i].throttle == 0.0f)
+#endif
                 break;
             currentMixer[i] = mcfg.customMixer[i];
             numberMotor++;
@@ -209,9 +326,15 @@ void mixerInit(void)
     if (feature(FEATURE_3D)) {
         if (numberMotor > 1) {
             for (i = 0; i < numberMotor; i++) {
+#if defined(MIXER_USES_INTEGER_MATH)
+                currentMixer[i].pitch = DIVIDE_WITH_ROUNDING(currentMixer[i].pitch, 2);
+                currentMixer[i].roll = DIVIDE_WITH_ROUNDING(currentMixer[i].roll, 2);
+                currentMixer[i].yaw = DIVIDE_WITH_ROUNDING(currentMixer[i].yaw, 2);
+#else
                 currentMixer[i].pitch *= 0.5f;
                 currentMixer[i].roll *= 0.5f;
                 currentMixer[i].yaw *= 0.5f;
+#endif
             }
         }
     }
@@ -242,7 +365,11 @@ void mixerLoadMix(int index)
     index++;
     // clear existing
     for (i = 0; i < MAX_MOTORS; i++)
+#if defined(MIXER_USES_INTEGER_MATH)
+        mcfg.customMixer[i].throttle = 0;
+#else
         mcfg.customMixer[i].throttle = 0.0f;
+#endif
 
     // do we have anything here to begin with?
     if (mixers[index].motor != NULL) {
@@ -391,8 +518,18 @@ void mixTable(void)
 
     // motors for non-servo mixes
     if (numberMotor > 1)
-        for (i = 0; i < numberMotor; i++)
+        for (i = 0; i < numberMotor; i++) {
+#if defined(MIXER_USES_INTEGER_MATH)
+            int32_t throttle, roll, pitch, yaw;
+            throttle = (int32_t)rcCommand[THROTTLE] * currentMixer[i].throttle;
+            pitch = (int32_t)axisPID[PITCH] * currentMixer[i].pitch;
+            roll = (int32_t)axisPID[ROLL] * currentMixer[i].roll;
+            yaw = (int32_t)-cfg.yaw_direction * (int32_t)axisPID[YAW] * currentMixer[i].yaw;
+            motor[i] = DIVIDE_WITH_ROUNDING(throttle, 1000) + DIVIDE_WITH_ROUNDING(pitch, 1000) + DIVIDE_WITH_ROUNDING(roll, 1000) + DIVIDE_WITH_ROUNDING(yaw, 1000);
+#else
             motor[i] = rcCommand[THROTTLE] * currentMixer[i].throttle + axisPID[PITCH] * currentMixer[i].pitch + axisPID[ROLL] * currentMixer[i].roll + -cfg.yaw_direction * axisPID[YAW] * currentMixer[i].yaw;
+#endif
+        }
 
     // airplane / servo mixes
     switch (mcfg.mixerConfiguration) {

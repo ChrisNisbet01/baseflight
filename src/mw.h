@@ -61,9 +61,9 @@ typedef enum GimbalFlags {
 
 /*********** RC alias *****************/
 enum {
-    ROLL = 0,
-    PITCH,
-    YAW,
+    ROLL = 0,   /* XXX used as index into array, so don't renumber */
+    PITCH,      /* XXX used as index into array, so don't renumber */
+    YAW,        /* XXX used as index into array, so don't renumber */
     THROTTLE,
     AUX1,
     AUX2,
@@ -124,11 +124,33 @@ enum {
 #define THR_HI (2 << (2 * THROTTLE))
 
 // Custom mixer data per motor
+
+/*
+    If MIXER_USES_INTEGER_MATH is defined, integer maths is used in the motor mixes.
+    The values stored in throttle, roll, pitch, yaw are the same as the float values multiplied by 1000,
+    and are rounded to the nearest integer.
+    so 0.866025f becomes 866, -0.666667f becomes -667 etc.
+    After these numbers are used during mixing, the results of the multiplication are then divided by 1000.
+    As the output values are all in the range 1000->2000 (i.e. 0.1% steps at best), there is little to no difference
+    in calculated value between using integers and floats.
+    There is a vast difference in CPU load though. A test indicated that doing the maths using floats takes around 5 times longer
+    than if integers are used.
+    Note also that the way the maths is done with floats, the results of the multiplications are truncated when converted back to integers,
+    not rounded.
+*/
+
 typedef struct motorMixer_t {
+#if defined(MIXER_USES_INTEGER_MATH)
+    int32_t throttle;
+    int32_t roll;
+    int32_t pitch;
+    int32_t yaw;
+#else
     float throttle;
     float roll;
     float pitch;
     float yaw;
+#endif    
 } motorMixer_t;
 
 // Custom mixer configuration
@@ -180,7 +202,7 @@ typedef struct config_t {
     uint8_t accxy_deadband;                 // set the acc deadband for xy-Axis
     uint8_t baro_tab_size;                  // size of baro filter array
     float baro_noise_lpf;                   // additional LPF to reduce baro noise
-    float baro_cf_vel;                      // apply Complimentary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity)
+    float baro_cf_vel;                      // apply Complementary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity)
     float baro_cf_alt;                      // apply CF to use ACC for height estimation
     float accz_lpf_cutoff;                  // cutoff frequency for the low pass filter used on the acc z-axis for althold in Hz
     uint8_t acc_unarmedcal;                 // turn automatic acc compensation on/off
@@ -193,7 +215,7 @@ typedef struct config_t {
     uint8_t yawdeadband;                    // introduce a deadband around the stick center for yaw axis. Must be greater than zero.
     uint8_t alt_hold_throttle_neutral;      // defines the neutral zone of throttle stick during altitude hold, default setting is +/-40
     uint8_t alt_hold_fast_change;           // when disabled, turn off the althold when throttle stick is out of deadband defined with alt_hold_throttle_neutral; when enabled, altitude changes slowly proportional to stick movement
-    uint16_t throttle_correction_angle;     // the angle when the throttle correction is maximal. in 0.1 degres, ex 225 = 22.5 ,30.0, 450 = 45.0 deg
+    uint16_t throttle_correction_angle;     // the angle when the throttle correction is maximal. in 0.1 degrees, ex 225 = 22.5 ,30.0, 450 = 45.0 deg
     uint8_t throttle_correction_value;      // the correction that will be applied at throttle_correction_angle.
 
     // Servo-related stuff
@@ -348,7 +370,7 @@ extern uint8_t rcOptions[CHECKBOXITEMS];
 extern int16_t failsafeCnt;
 
 extern int16_t debug[4];
-extern int16_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
+extern int32_t gyroADC[3], accADC[3], accSmooth[3], magADC[3];
 extern int32_t accSum[3];
 extern uint16_t acc_1G;
 extern uint32_t accTimeSum;
@@ -356,9 +378,9 @@ extern int accSumCount;
 extern uint32_t currentTime;
 extern uint32_t previousTime;
 extern uint16_t cycleTime;
-extern uint16_t calibratingA;
-extern uint16_t calibratingB;
-extern uint16_t calibratingG;
+extern int calibratingA;
+extern int calibratingB;
+extern int calibratingG;
 extern int32_t baroPressure;
 extern int32_t baroTemperature;
 extern uint32_t baroPressureSum;
@@ -379,7 +401,7 @@ extern int16_t servo[MAX_SERVOS];
 extern int16_t rcData[RC_CHANS];
 extern uint16_t rssi;                  // range: [0;1023]
 extern uint16_t vbat;                  // battery voltage in 0.1V steps
-extern int16_t telemTemperature1;      // gyro sensor temperature
+extern int32_t telemTemperature1;      // gyro sensor temperature
 extern int32_t amperage;               // amperage read by current sensor in 0.01A steps
 extern int32_t mAhdrawn;              // milli ampere hours drawn from battery since start
 extern uint8_t toggleBeep;
@@ -400,9 +422,9 @@ extern uint16_t GPS_altitude,GPS_speed;                      // altitude in 0.1m
 extern uint8_t  GPS_update;                                  // it's a binary toogle to distinct a GPS position update
 extern int16_t  GPS_angle[2];                                // it's the angles that must be applied for GPS correction
 extern uint16_t GPS_ground_course;                           // degrees*10
-extern int16_t  nav[2];
+extern int32_t  nav[2];
 extern int8_t   nav_mode;                                    // Navigation mode
-extern int16_t  nav_rated[2];                                // Adding a rate controller to the navigation to make it smoother
+extern int32_t  nav_rated[2];                                // Adding a rate controller to the navigation to make it smoother
 extern uint8_t  GPS_numCh;                                   // Number of channels
 extern uint8_t  GPS_svinfo_chn[16];                          // Channel number
 extern uint8_t  GPS_svinfo_svid[16];                         // Satellite ID
@@ -431,7 +453,7 @@ int getEstimatedAltitude(void);
 // Sensors
 bool sensorsAutodetect(void);
 void batteryInit(void);
-uint16_t batteryAdcToVoltage(uint16_t src);
+uint32_t batteryAdcToVoltage(uint32_t src);
 int32_t currentSensorToCentiamps(uint16_t src);
 void ACC_getADC(void);
 int Baro_update(void);

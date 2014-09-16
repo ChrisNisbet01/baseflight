@@ -345,7 +345,11 @@ static void resetConf(void)
 
     // custom mixer. clear by defaults.
     for (i = 0; i < MAX_MOTORS; i++)
+#if defined(MIXER_USES_INTEGER_MATH)
+        mcfg.customMixer[i].throttle = 0;
+#else
         mcfg.customMixer[i].throttle = 0.0f;
+#endif
 
     // copy default config into all 3 profiles
     for (i = 0; i < 3; i++)

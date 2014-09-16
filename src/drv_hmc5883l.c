@@ -70,16 +70,22 @@
 #define HMC58X3_R_CONFA 0
 #define HMC58X3_R_CONFB 1
 #define HMC58X3_R_MODE 2
-#define HMC58X3_X_SELF_TEST_GAUSS (+1.16f)       // X axis level when bias current is applied.
-#define HMC58X3_Y_SELF_TEST_GAUSS (+1.16f)       // Y axis level when bias current is applied.
-#define HMC58X3_Z_SELF_TEST_GAUSS (+1.08f)       // Z axis level when bias current is applied.
+#define HMC58X3_X_SELF_TEST_GAUSS 17400       // X axis level (*15000) when bias current is applied.
+#define HMC58X3_Y_SELF_TEST_GAUSS 17400       // Y axis level (*15000) when bias current is applied.
+#define HMC58X3_Z_SELF_TEST_GAUSS 16200       // Z axis level (*15000) when bias current is applied.
+#define HMC58X3_X_SELF_TEST_GAUSS_F 1.16f       // X axis level when bias current is applied.
+#define HMC58X3_Y_SELF_TEST_GAUSS_F 1.16f       // Y axis level when bias current is applied.
+#define HMC58X3_Z_SELF_TEST_GAUSS_F 1.08f       // Z axis level when bias current is applied.
+
 #define SELF_TEST_LOW_LIMIT  (243.0f / 390.0f)    // Low limit when gain is 5.
 #define SELF_TEST_HIGH_LIMIT (575.0f / 390.0f)    // High limit when gain is 5.
 #define HMC_POS_BIAS 1
 #define HMC_NEG_BIAS 2
 
+#define MAG_GAIN_SCALE_FACTOR 15000
+
 static sensor_align_e magAlign = CW180_DEG;
-static float magGain[3] = { 1.0f, 1.0f, 1.0f };
+static int32_t magGain[3] = { MAG_GAIN_SCALE_FACTOR, MAG_GAIN_SCALE_FACTOR, MAG_GAIN_SCALE_FACTOR };
 
 bool hmc5883lDetect(sensor_align_e align)
 {
@@ -99,7 +105,7 @@ bool hmc5883lDetect(sensor_align_e align)
 void hmc5883lInit(void)
 {
     gpio_config_t gpio;
-    int16_t magADC[3];
+    int32_t magADC[3];
     int i;
     int32_t xyz_total[3] = { 0, 0, 0 }; // 32 bit totals so they won't overflow.
     bool bret = true;           // Error indicator
@@ -162,9 +168,10 @@ void hmc5883lInit(void)
         LED1_TOGGLE;
     }
 
-    magGain[X] = fabsf(660.0f * HMC58X3_X_SELF_TEST_GAUSS * 2.0f * 10.0f / xyz_total[X]);
-    magGain[Y] = fabsf(660.0f * HMC58X3_Y_SELF_TEST_GAUSS * 2.0f * 10.0f / xyz_total[Y]);
-    magGain[Z] = fabsf(660.0f * HMC58X3_Z_SELF_TEST_GAUSS * 2.0f * 10.0f / xyz_total[Z]);
+    // XXX Test for divide by 0?
+    magGain[X] = abs(660 * HMC58X3_X_SELF_TEST_GAUSS * 2 * 10 / xyz_total[X]);
+    magGain[Y] = abs(660 * HMC58X3_Y_SELF_TEST_GAUSS * 2 * 10 / xyz_total[Y]);
+    magGain[Z] = abs(660 * HMC58X3_Z_SELF_TEST_GAUSS * 2 * 10 / xyz_total[Z]);
 
     // leave test mode
     i2cWrite(MAG_ADDRESS, HMC58X3_R_CONFA, 0x70);   // Configuration Register A  -- 0 11 100 00  num samples: 8 ; output rate: 15Hz ; normal measurement mode
@@ -173,22 +180,24 @@ void hmc5883lInit(void)
     delay(100);
 
     if (!bret) {                // Something went wrong so get a best guess
-        magGain[X] = 1.0f;
-        magGain[Y] = 1.0f;
-        magGain[Z] = 1.0f;
+        magGain[X] = MAG_GAIN_SCALE_FACTOR;
+        magGain[Y] = MAG_GAIN_SCALE_FACTOR;
+        magGain[Z] = MAG_GAIN_SCALE_FACTOR;
     }
 }
 
-void hmc5883lRead(int16_t *magData)
+void hmc5883lRead(int32_t *magData)
 {
     uint8_t buf[6];
-    int16_t mag[3];
+    int32_t mag[3];
 
     i2cRead(MAG_ADDRESS, MAG_DATA_REGISTER, 6, buf);
     // During calibration, magGain is 1.0, so the read returns normal non-calibrated values.
     // After calibration is done, magGain is set to calculated gain values.
-    mag[X] = (int16_t)(buf[0] << 8 | buf[1]) * magGain[X];
-    mag[Z] = (int16_t)(buf[2] << 8 | buf[3]) * magGain[Z];
-    mag[Y] = (int16_t)(buf[4] << 8 | buf[5]) * magGain[Y];
+    mag[X] = DIVIDE_WITH_ROUNDING((int32_t)((int16_t)(buf[0] << 8) | buf[1]) * magGain[X], MAG_GAIN_SCALE_FACTOR);
+    mag[Z] = DIVIDE_WITH_ROUNDING((int32_t)((int16_t)(buf[2] << 8) | buf[3]) * magGain[Z], MAG_GAIN_SCALE_FACTOR);
+    mag[Y] = DIVIDE_WITH_ROUNDING((int32_t)((int16_t)(buf[4] << 8) | buf[5]) * magGain[Y], MAG_GAIN_SCALE_FACTOR);
+
     alignSensors(mag, magData, magAlign);
 }
+

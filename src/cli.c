@@ -120,7 +120,7 @@ typedef enum {
 
 typedef struct {
     const char *name;
-    const uint8_t type; // vartype_e
+    const vartype_e type;
     void *ptr;
     const int32_t min;
     const int32_t max;
@@ -479,7 +479,11 @@ static void cliCMix(char *cmdline)
     int num_motors = 0;
     uint8_t len;
     char buf[16];
+#if defined(MOTOR_MIXER_USES_INT)
+    int32_t mixsum[3];
+#else
     float mixsum[3];
+#endif
     char *ptr;
 
     len = strlen(cmdline);
@@ -487,16 +491,31 @@ static void cliCMix(char *cmdline)
     if (len == 0) {
         cliPrint("Custom mixer: \r\nMotor\tThr\tRoll\tPitch\tYaw\r\n");
         for (i = 0; i < MAX_MOTORS; i++) {
+#if defined(MOTOR_MIXER_USES_INT)
+            if (mcfg.customMixer[i].throttle == 0)
+#else
             if (mcfg.customMixer[i].throttle == 0.0f)
+#endif
                 break;
             num_motors++;
             printf("#%d:\t", i + 1);
+#if defined(MOTOR_MIXER_USES_INT)
+            printf("%s\t", ftoa((float)mcfg.customMixer[i].throttle/1000.0f, buf));
+            printf("%s\t", ftoa((float)mcfg.customMixer[i].roll/1000.0f, buf));
+            printf("%s\t", ftoa((float)mcfg.customMixer[i].pitch/1000.0f, buf));
+            printf("%s\r\n", ftoa((float)mcfg.customMixer[i].yaw/1000.0f, buf));
+#else
             printf("%s\t", ftoa(mcfg.customMixer[i].throttle, buf));
             printf("%s\t", ftoa(mcfg.customMixer[i].roll, buf));
             printf("%s\t", ftoa(mcfg.customMixer[i].pitch, buf));
             printf("%s\r\n", ftoa(mcfg.customMixer[i].yaw, buf));
+#endif            
         }
+#if defined(MOTOR_MIXER_USES_INT)
+        mixsum[0] = mixsum[1] = mixsum[2] = 0;
+#else
         mixsum[0] = mixsum[1] = mixsum[2] = 0.0f;
+#endif
         for (i = 0; i < num_motors; i++) {
             mixsum[0] += mcfg.customMixer[i].roll;
             mixsum[1] += mcfg.customMixer[i].pitch;
@@ -504,13 +523,22 @@ static void cliCMix(char *cmdline)
         }
         cliPrint("Sanity check:\t");
         for (i = 0; i < 3; i++)
+#if defined(MOTOR_MIXER_USES_INT)
+            /* integer values are scaled up by 1000, so allow some more leeway */
+            cliPrint(abs(mixsum[i]) > 10 ? "NG\t" : "OK\t");
+#else
             cliPrint(fabsf(mixsum[i]) > 0.01f ? "NG\t" : "OK\t");
+#endif
         cliPrint("\r\n");
         return;
     } else if (strncasecmp(cmdline, "reset", 5) == 0) {
         // erase custom mixer
         for (i = 0; i < MAX_MOTORS; i++)
+#if defined(MIXER_USES_INTEGER_MATH)
+            mcfg.customMixer[i].throttle = 0;
+#else
             mcfg.customMixer[i].throttle = 0.0f;
+#endif
     } else if (strncasecmp(cmdline, "load", 4) == 0) {
         ptr = strchr(cmdline, ' ');
         if (ptr) {
@@ -534,22 +562,42 @@ static void cliCMix(char *cmdline)
         if (--i < MAX_MOTORS) {
             ptr = strchr(ptr, ' ');
             if (ptr) {
+#if defined(MIXER_USES_INTEGER_MATH)
+                /* scale up */
+                mcfg.customMixer[i].throttle = _atof(++ptr)*1000.0f + 0.5f;
+#else
                 mcfg.customMixer[i].throttle = _atof(++ptr);
+#endif
                 check++;
             }
             ptr = strchr(ptr, ' ');
             if (ptr) {
+#if defined(MIXER_USES_INTEGER_MATH)
+                /* scale up */
+                mcfg.customMixer[i].roll = _atof(++ptr) * 1000.0f + 0.5f;
+#else
                 mcfg.customMixer[i].roll = _atof(++ptr);
+#endif
                 check++;
             }
             ptr = strchr(ptr, ' ');
             if (ptr) {
+#if defined(MIXER_USES_INTEGER_MATH)
+                /* scale up */
+                mcfg.customMixer[i].pitch = _atof(++ptr) * 1000.0f + 0.5f;
+#else
                 mcfg.customMixer[i].pitch = _atof(++ptr);
+#endif
                 check++;
             }
             ptr = strchr(ptr, ' ');
             if (ptr) {
+#if defined(MIXER_USES_INTEGER_MATH)
+                /* scale up */
+                mcfg.customMixer[i].yaw = _atof(++ptr) * 1000.0f + 0.5f;
+#else
                 mcfg.customMixer[i].yaw = _atof(++ptr);
+#endif
                 check++;
             }
             if (check != 4) {
@@ -592,14 +640,29 @@ static void cliDump(char *cmdline)
     printf("mixer %s\r\n", mixerNames[mcfg.mixerConfiguration - 1]);
 
     // print custom mix if exists
+#if defined(MIXER_USES_INTEGER_MATH)
+    if (mcfg.customMixer[0].throttle != 0) {
+#else
     if (mcfg.customMixer[0].throttle != 0.0f) {
+#endif
         for (i = 0; i < MAX_MOTORS; i++) {
+#if defined(MIXER_USES_INTEGER_MATH)
+            if (mcfg.customMixer[i].throttle == 0)
+#else
             if (mcfg.customMixer[i].throttle == 0.0f)
+#endif
                 break;
             thr = mcfg.customMixer[i].throttle;
             roll = mcfg.customMixer[i].roll;
             pitch = mcfg.customMixer[i].pitch;
             yaw = mcfg.customMixer[i].yaw;
+#if defined(MIXER_USES_INTEGER_MATH)
+            /* scale down */
+            thr /= 1000.0f;
+            roll /= 1000.0f;
+            pitch /= 1000.0f;
+            yaw /= 1000.0f;
+#endif
             printf("cmix %d", i + 1);
             if (thr < 0)
                 printf(" ");

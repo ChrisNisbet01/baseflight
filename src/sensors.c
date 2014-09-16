@@ -6,9 +6,9 @@
 #include "board.h"
 #include "mw.h"
 
-uint16_t calibratingA = 0;      // the calibration is done is the main loop. Calibrating decreases at each cycle down to 0, then we enter in a normal mode.
-uint16_t calibratingB = 0;      // baro calibration = get new ground pressure value
-uint16_t calibratingG = 0;
+int calibratingA = 0;      // the calibration is done is the main loop. Calibrating decreases at each cycle down to 0, then we enter in a normal mode.
+int calibratingB = 0;      // baro calibration = get new ground pressure value
+int calibratingG = 0;
 uint16_t acc_1G = 256;          // this is the 1G measured acceleration.
 int16_t heading, magHold;
 
@@ -18,7 +18,7 @@ extern bool AccInflightCalibrationSavetoEEProm;
 extern bool AccInflightCalibrationActive;
 extern uint16_t batteryWarningVoltage;
 extern uint8_t batteryCellCount;
-extern float magneticDeclination;
+extern int magneticDeclination;
 
 sensor_t acc;                       // acc access functions
 sensor_t gyro;                      // gyro access functions
@@ -142,29 +142,30 @@ retry:
     deg = cfg.mag_declination / 100;
     min = cfg.mag_declination % 100;
     if (sensors(SENSOR_MAG))
-        magneticDeclination = (deg + ((float)min * (1.0f / 60.0f))) * 10; // heading is in 0.1deg units
+        magneticDeclination = (deg * 10) + DIVIDE_WITH_ROUNDING( min * 10, 60 );
     else
-        magneticDeclination = 0.0f;
+        magneticDeclination = 0;
 
     return true;
 }
 
-uint16_t batteryAdcToVoltage(uint16_t src)
+#define ADCVREF 33L
+uint32_t batteryAdcToVoltage(uint32_t src)
 {
     // calculate battery voltage based on ADC reading
     // result is Vbatt in 0.1V steps. 3.3V = ADC Vref, 4095 = 12bit adc, 110 = 11:1 voltage divider (10k:1k) * 10 for 0.1V
-    return (((src) * 3.3f) / 4095) * mcfg.vbatscale;
+    return DIVIDE_WITH_ROUNDING( src * ADCVREF * mcfg.vbatscale, 40950 );
 }
 
-#define ADCVREF 33L
 int32_t currentSensorToCentiamps(uint16_t src)
 {
     int32_t millivolts;
     
-    millivolts = ((uint32_t)src * ADCVREF * 100) / 4095;
+    millivolts = DIVIDE_WITH_ROUNDING((uint32_t)src * ADCVREF * 100, 4095);
+
     millivolts -= mcfg.currentoffset;
     
-    return (millivolts * 1000) / (int32_t)mcfg.currentscale; // current in 0.01A steps 
+    return DIVIDE_WITH_ROUNDING(millivolts * 1000, mcfg.currentscale); // current in 0.01A steps 
 }
 
 void batteryInit(void)
@@ -178,7 +179,7 @@ void batteryInit(void)
         delay(10);
     }
 
-    voltage = batteryAdcToVoltage((uint16_t)(voltage / 32));
+    voltage = batteryAdcToVoltage(DIVIDE_WITH_ROUNDING(voltage, 32));
 
     // autodetect cell count, going from 2S..8S
     for (i = 1; i < 8; i++) {
@@ -207,9 +208,9 @@ static void ACC_Common(void)
         }
         // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
         if (calibratingA == 1) {
-            mcfg.accZero[ROLL] = (a[ROLL] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES;
-            mcfg.accZero[PITCH] = (a[PITCH] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES;
-            mcfg.accZero[YAW] = (a[YAW] + (CALIBRATING_ACC_CYCLES / 2)) / CALIBRATING_ACC_CYCLES - acc_1G;
+            mcfg.accZero[ROLL] = DIVIDE_WITH_ROUNDING(a[ROLL], CALIBRATING_ACC_CYCLES);
+            mcfg.accZero[PITCH] = DIVIDE_WITH_ROUNDING(a[PITCH], CALIBRATING_ACC_CYCLES);
+            mcfg.accZero[YAW] = DIVIDE_WITH_ROUNDING(a[YAW], CALIBRATING_ACC_CYCLES) - acc_1G;
             cfg.angleTrim[ROLL] = 0;
             cfg.angleTrim[PITCH] = 0;
             writeEEPROM(1, true);      // write accZero in EEPROM
@@ -257,9 +258,9 @@ static void ACC_Common(void)
         // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
         if (AccInflightCalibrationSavetoEEProm) {      // the copter is landed, disarmed and the combo has been done again
             AccInflightCalibrationSavetoEEProm = false;
-            mcfg.accZero[ROLL] = b[ROLL] / 50;
-            mcfg.accZero[PITCH] = b[PITCH] / 50;
-            mcfg.accZero[YAW] = b[YAW] / 50 - acc_1G;    // for nunchuk 200=1G
+            mcfg.accZero[ROLL] = DIVIDE_WITH_ROUNDING(b[ROLL], 50);
+            mcfg.accZero[PITCH] = DIVIDE_WITH_ROUNDING(b[PITCH], 50);
+            mcfg.accZero[YAW] = DIVIDE_WITH_ROUNDING(b[YAW], 50) - acc_1G;    // for nunchuk 200=1G
             cfg.angleTrim[ROLL] = 0;
             cfg.angleTrim[PITCH] = 0;
             writeEEPROM(1, true);          // write accZero in EEPROM
@@ -386,7 +387,7 @@ static void GYRO_Common(void)
                     g[0] = g[1] = g[2] = 0;
                     continue;
                 }
-                gyroZero[axis] = (g[axis] + (CALIBRATING_GYRO_CYCLES / 2)) / CALIBRATING_GYRO_CYCLES;
+                gyroZero[axis] = DIVIDE_WITH_ROUNDING(g[axis], CALIBRATING_GYRO_CYCLES);
                 blinkLED(10, 15, 1);
             }
         }
@@ -457,7 +458,7 @@ int Mag_getADC(void)
         } else {
             tCal = 0;
             for (axis = 0; axis < 3; axis++)
-                mcfg.magZero[axis] = (magZeroTempMin[axis] + magZeroTempMax[axis]) / 2; // Calculate offsets
+                mcfg.magZero[axis] = DIVIDE_WITH_ROUNDING(magZeroTempMin[axis] + magZeroTempMax[axis], 2); // Calculate offsets
             writeEEPROM(1, true);
         }
     }

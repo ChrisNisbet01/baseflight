@@ -19,7 +19,7 @@ int16_t headFreeModeHold;
 uint16_t vbat;                  // battery voltage in 0.1V steps
 int32_t amperage;               // amperage read by current sensor in centiampere (1/100th A)
 int32_t mAhdrawn;              // milliampere hours drawn from the battery since start
-int16_t telemTemperature1;      // gyro sensor temperature
+int32_t telemTemperature1;      // gyro sensor temperature
 
 int16_t failsafeCnt = 0;
 int16_t failsafeEvents = 0;
@@ -52,8 +52,8 @@ uint16_t GPS_altitude, GPS_speed;   // altitude in 0.1m and speed in 0.1m/s
 uint8_t GPS_update = 0;             // it's a binary toogle to distinct a GPS position update
 int16_t GPS_angle[2] = { 0, 0 };    // it's the angles that must be applied for GPS correction
 uint16_t GPS_ground_course = 0;     // degrees * 10
-int16_t nav[2];
-int16_t nav_rated[2];               // Adding a rate controller to the navigation to make it smoother
+int32_t nav[2];
+int32_t nav_rated[2];               // Adding a rate controller to the navigation to make it smoother
 int8_t nav_mode = NAV_MODE_NONE;    // Navigation mode
 uint8_t GPS_numCh;                  // Number of channels
 uint8_t GPS_svinfo_chn[16];         // Channel number
@@ -154,7 +154,7 @@ void annexCode(void)
         float radDiff = (heading - headFreeModeHold) * M_PI / 180.0f;
         float cosDiff = cosf(radDiff);
         float sinDiff = sinf(radDiff);
-        int16_t rcCommand_PITCH = rcCommand[PITCH] * cosDiff + rcCommand[ROLL] * sinDiff;
+        int32_t rcCommand_PITCH = rcCommand[PITCH] * cosDiff + rcCommand[ROLL] * sinDiff;
         rcCommand[ROLL] = rcCommand[ROLL] * cosDiff - rcCommand[PITCH] * sinDiff;
         rcCommand[PITCH] = rcCommand_PITCH;
     }
@@ -269,7 +269,7 @@ void computeRC(void)
             rcData[chan] = 0;
             for (i = 0; i < 4; i++)
                 rcData[chan] += rcDataAverage[chan][i];
-            rcData[chan] /= 4;
+            rcData[chan] = DIVIDE_WITH_ROUNDING(rcData[chan], 4);
         }
         rcAverageIndex++;
     }
@@ -305,16 +305,15 @@ static int32_t errorAngleI[2] = { 0, 0 };
 
 static void pidMultiWii(void)
 {
-    int axis, prop;
+    int axis;
     int32_t error, errorAngle;
     int32_t PTerm, ITerm, PTermACC = 0, ITermACC = 0, PTermGYRO = 0, ITermGYRO = 0, DTerm;
-    static int16_t lastGyro[3] = { 0, 0, 0 };
+    static int32_t lastGyro[3] = { 0, 0, 0 };
     static int32_t delta1[3], delta2[3];
     int32_t deltaSum;
     int32_t delta;
 
     // **** PITCH & ROLL & YAW PID ****
-    prop = max(abs(rcCommand[PITCH]), abs(rcCommand[ROLL])); // range [0;500]
     for (axis = 0; axis < 3; axis++) {
         if ((f.ANGLE_MODE || f.HORIZON_MODE) && axis < 2) { // MODE relying on ACC
             // 50 degrees max inclination
@@ -327,7 +326,7 @@ static void pidMultiWii(void)
         }
         if (!f.ANGLE_MODE || f.HORIZON_MODE || axis == 2) { // MODE relying on GYRO or YAW axis
             error = (int32_t)rcCommand[axis] * 10 * 8 / cfg.P8[axis];
-            error -= gyroData[axis];
+            error -= gyroData[axis];    /* be nice if gyroData is in standard units, not +- 8192 */
 
             PTermGYRO = rcCommand[axis];
 
@@ -336,26 +335,38 @@ static void pidMultiWii(void)
                 errorGyroI[axis] = 0;
             ITermGYRO = (errorGyroI[axis] / 125 * cfg.I8[axis]) >> 6;
         }
-        if (f.HORIZON_MODE && axis < 2) {
+
+        if (axis == 2 || (f.HORIZON_MODE == 0 && f.ANGLE_MODE == 0)) {
+            PTerm = PTermGYRO;
+            ITerm = ITermGYRO;
+        } else if (f.HORIZON_MODE) {
+            int prop;
+            
+            prop = max(abs(rcCommand[PITCH]), abs(rcCommand[ROLL])); // range [0;500]
             PTerm = (PTermACC * (500 - prop) + PTermGYRO * prop) / 500;
             ITerm = (ITermACC * (500 - prop) + ITermGYRO * prop) / 500;
-        } else {
-            if (f.ANGLE_MODE && axis < 2) {
-                PTerm = PTermACC;
-                ITerm = ITermACC;
-            } else {
-                PTerm = PTermGYRO;
-                ITerm = ITermGYRO;
-            }
+        }
+        else {  /* ANGLE_MODE */
+            PTerm = PTermACC;
+            ITerm = ITermACC;
         }
 
         PTerm -= (int32_t)gyroData[axis] * dynP8[axis] / 10 / 8; // 32 bits is needed for calculation
+
+        /* 
+            D term always using gyro only. No accelerometer.
+            Note: D term calculation not based upon setpoint.
+        */
         delta = gyroData[axis] - lastGyro[axis];
         lastGyro[axis] = gyroData[axis];
+
+        /* using average of last three deltas */
         deltaSum = delta1[axis] + delta2[axis] + delta;
         delta2[axis] = delta1[axis];
         delta1[axis] = delta;
+
         DTerm = (deltaSum * dynD8[axis]) / 32;
+
         axisPID[axis] = PTerm + ITerm - DTerm;
     }
 }
@@ -506,13 +517,13 @@ void loop(void)
                 rcData[THROTTLE] = cfg.failsafe_throttle;
                 if (failsafeCnt > 5 * (cfg.failsafe_delay + cfg.failsafe_off_delay)) {  // Turn OFF motors after specified Time (in 0.1sec)
                     mwDisarm();             // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
-                    f.OK_TO_ARM = 0;        // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
+                    f.OK_TO_ARM = 0;        // to restart accidentally by just reconnecting to the tx - you will have to switch off first to rearm
                 }
                 failsafeEvents++;
             }
             if (failsafeCnt > (5 * cfg.failsafe_delay) && !f.ARMED) {  // Turn off "Ok To arm to prevent the motors from spinning after repowering the RX with low throttle and aux to arm
                 mwDisarm();         // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
-                f.OK_TO_ARM = 0;    // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
+                f.OK_TO_ARM = 0;    // to restart accidentally by just reconnect to the tx - you will have to switch off first to rearm
             }
             failsafeCnt++;
         }
@@ -846,19 +857,19 @@ void loop(void)
         loopTime = currentTime + mcfg.looptime;
 
         computeIMU();
-        // Measure loop rate just afer reading the sensors
+        // Measure loop rate just after reading the sensors
         currentTime = micros();
         cycleTime = (int32_t)(currentTime - previousTime);
         previousTime = currentTime;
-        // non IMU critical, temeperatur, serialcom
+        // non IMU critical, temperature, serialcom
          annexCode();
 #ifdef MAG
         if (sensors(SENSOR_MAG)) {
             if (abs(rcCommand[YAW]) < 70 && f.MAG_MODE) {
                 int16_t dif = heading - magHold;
-                if (dif <= -180)
+                if (dif < -180)
                     dif += 360;
-                if (dif >= +180)
+                if (dif > 180)
                     dif -= 360;
                 dif *= -mcfg.yaw_control_direction;
                 if (f.SMALL_ANGLE)
@@ -918,16 +929,16 @@ void loop(void)
 #ifdef GPS
         if (sensors(SENSOR_GPS)) {
             if ((f.GPS_HOME_MODE || f.GPS_HOLD_MODE) && f.GPS_FIX_HOME) {
-                float sin_yaw_y = sinf(heading * 0.0174532925f);
-                float cos_yaw_x = cosf(heading * 0.0174532925f);
+                int32_t sin_yaw_y = sini(heading, 1);
+                int32_t cos_yaw_x = cosi(heading, 1);
                 if (cfg.nav_slew_rate) {
                     nav_rated[LON] += constrain(wrap_18000(nav[LON] - nav_rated[LON]), -cfg.nav_slew_rate, cfg.nav_slew_rate); // TODO check this on uint8
                     nav_rated[LAT] += constrain(wrap_18000(nav[LAT] - nav_rated[LAT]), -cfg.nav_slew_rate, cfg.nav_slew_rate);
-                    GPS_angle[ROLL] = (nav_rated[LON] * cos_yaw_x - nav_rated[LAT] * sin_yaw_y) / 10;
-                    GPS_angle[PITCH] = (nav_rated[LON] * sin_yaw_y + nav_rated[LAT] * cos_yaw_x) / 10;
+                    GPS_angle[ROLL] = DIVIDE_WITH_ROUNDING(nav_rated[LON] * cos_yaw_x - nav_rated[LAT] * sin_yaw_y, SINE_RANGE * 10);
+                    GPS_angle[PITCH] = DIVIDE_WITH_ROUNDING(nav_rated[LON] * sin_yaw_y + nav_rated[LAT] * cos_yaw_x, SINE_RANGE * 10);
                 } else {
-                    GPS_angle[ROLL] = (nav[LON] * cos_yaw_x - nav[LAT] * sin_yaw_y) / 10;
-                    GPS_angle[PITCH] = (nav[LON] * sin_yaw_y + nav[LAT] * cos_yaw_x) / 10;
+                    GPS_angle[ROLL] = DIVIDE_WITH_ROUNDING(nav[LON] * cos_yaw_x - nav[LAT] * sin_yaw_y, SINE_RANGE * 10);
+                    GPS_angle[PITCH] = DIVIDE_WITH_ROUNDING(nav[LON] * sin_yaw_y + nav[LAT] * cos_yaw_x, SINE_RANGE * 10);
                 }
             }
         }
