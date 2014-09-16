@@ -60,9 +60,9 @@ static sensor_align_e gyroAlign = CW0_DEG;
 static sensor_align_e accAlign = CW0_DEG;
 
 static void mpu6500AccInit(sensor_align_e align);
-static void mpu6500AccRead(int16_t *accData);
+static void mpu6500AccRead(int32_t *accData);
 static void mpu6500GyroInit(sensor_align_e align);
-static void mpu6500GyroRead(int16_t *gyroData);
+static void mpu6500GyroRead(int32_t *gyroData);
 
 extern uint16_t acc_1G;
 
@@ -123,10 +123,10 @@ static void mpu6500AccInit(sensor_align_e align)
         accAlign = align;
 }
 
-static void mpu6500AccRead(int16_t *accData)
+static void mpu6500AccRead(int32_t *accData)
 {
     uint8_t buf[6];
-    int16_t data[3];
+    int32_t data[3];
 
     mpu6500ReadRegister(MPU6500_RA_ACCEL_XOUT_H, buf, 6);
 
@@ -163,10 +163,10 @@ static void mpu6500GyroInit(sensor_align_e align)
         gyroAlign = align;
 }
 
-static void mpu6500GyroRead(int16_t *gyroData)
+static void mpu6500GyroRead(int32_t *gyroData)
 {
     uint8_t buf[6];
-    int16_t data[3];
+    int32_t data[3];
 
     mpu6500ReadRegister(MPU6500_RA_GYRO_XOUT_H, buf, 6);
 
