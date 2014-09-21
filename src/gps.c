@@ -513,15 +513,15 @@ static void gpsNewData(uint16_t c)
                 GPS_read[axis] = GPS_coord[axis];               // latest unfiltered data is in GPS_latitude and GPS_longitude
                 GPS_degree[axis] = GPS_read[axis] / 10000000;   // get the degree to assure the sum fits to the int32_t
 
-                // How close we are to a degree line ? its the first three digits from the fractions of degree
-                // later we use it to Check if we are close to a degree line, if yes, disable averaging,
-                fraction3[axis] = (GPS_read[axis] - GPS_degree[axis] * 10000000) / 10000;
-
                 GPS_filter_sum[axis] -= GPS_filter[axis][GPS_filter_index];
                 GPS_filter[axis][GPS_filter_index] = GPS_read[axis] - (GPS_degree[axis] * 10000000);
                 GPS_filter_sum[axis] += GPS_filter[axis][GPS_filter_index];
                 GPS_filtered[axis] = GPS_filter_sum[axis] / GPS_FILTER_VECTOR_LENGTH + (GPS_degree[axis] * 10000000);
                 if (nav_mode == NAV_MODE_POSHOLD) {             // we use gps averaging only in poshold mode...
+                    // How close we are to a degree line ? its the first three digits from the fractions of degree
+                    // later we use it to Check if we are close to a degree line, if yes, disable averaging,
+                    fraction3[axis] = (GPS_read[axis] - GPS_degree[axis] * 10000000) / 10000;
+
                     if (fraction3[axis] > 1 && fraction3[axis] < 999)
                         GPS_coord[axis] = GPS_filtered[axis];
                 }
@@ -534,14 +534,14 @@ static void gpsNewData(uint16_t c)
             // prevent runup from bad GPS
             dTnav = min(dTnav, 1.0f);
 
-            // calculate distance and bearings for gui and other stuff continously - From home to copter
-            GPS_distance_cm_bearing(&GPS_coord[LAT], &GPS_coord[LON], &GPS_home[LAT], &GPS_home[LON], &dist, &dir);
-            GPS_distanceToHome = dist / 100;
-            GPS_directionToHome = dir / 100;
-
             if (!f.GPS_FIX_HOME) {      // If we don't have home set, do not display anything
                 GPS_distanceToHome = 0;
                 GPS_directionToHome = 0;
+            } else {
+                // calculate distance and bearings for gui and other stuff continuously - From home to copter
+                GPS_distance_cm_bearing(&GPS_coord[LAT], &GPS_coord[LON], &GPS_home[LAT], &GPS_home[LON], &dist, &dir);
+                GPS_distanceToHome = DIVIDE_WITH_ROUNDING(dist, 100);
+                GPS_directionToHome = DIVIDE_WITH_ROUNDING(dir, 100);
             }
 
             // calculate the current velocity based on gps coordinates continously to get a valid speed at the moment when we start navigating
@@ -567,9 +567,9 @@ static void gpsNewData(uint16_t c)
                     // Tail control
                     if (cfg.nav_controls_heading) {
                         if (NAV_TAIL_FIRST) {
-                            magHold = wrap_18000(nav_bearing - 18000) / 100;
+                            magHold = DIVIDE_WITH_ROUNDING(wrap_18000(nav_bearing - 18000), 100);
                         } else {
-                            magHold = nav_bearing / 100;
+                            magHold = DIVIDE_WITH_ROUNDING(nav_bearing, 100);
                         }
                     }
                     // Are we there yet ?(within x meters of the destination)

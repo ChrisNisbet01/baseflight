@@ -28,7 +28,7 @@ static uint8_t mpuLowPassFilter = L3G4200D_DLPF_32HZ;
 static sensor_align_e gyroAlign = CW0_DEG;
 
 static void l3g4200dInit(sensor_align_e align);
-static void l3g4200dRead(int16_t *gyroData);
+static void l3g4200dRead(int32_t *gyroData);
 
 bool l3g4200dDetect(sensor_t *gyro, uint16_t lpf)
 {
@@ -45,7 +45,7 @@ bool l3g4200dDetect(sensor_t *gyro, uint16_t lpf)
 
     // 14.2857dps/lsb scalefactor
     gyro->scale = (((32767.0f / 14.2857f) * M_PI) / ((32767.0f / 4.0f) * 180.0f * 1000000.0f));
-
+    
     // default LPF is set to 32Hz
     switch (lpf) {
         default:
@@ -83,10 +83,10 @@ static void l3g4200dInit(sensor_align_e align)
 }
 
 // Read 3 gyro values into user-provided buffer. No overrun checking is done.
-static void l3g4200dRead(int16_t *gyroData)
+static void l3g4200dRead(int32_t *gyroData)
 {
     uint8_t buf[6];
-    int16_t data[3];
+    int32_t data[3];
 
     i2cRead(L3G4200D_ADDRESS, L3G4200D_AUTOINCR | L3G4200D_GYRO_OUT, 6, buf);
     data[X] = (int16_t)((buf[0] << 8) | buf[1]) / 4;
@@ -95,3 +95,4 @@ static void l3g4200dRead(int16_t *gyroData)
 
     alignSensors(data, gyroData, gyroAlign);
 }
+

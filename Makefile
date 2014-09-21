@@ -20,7 +20,7 @@ TARGET		?= NAZE
 # Compile-time options
 OPTIONS		?=
 
-# Debugger optons, must be empty or GDB
+# Debugger options, must be empty or GDB
 DEBUG ?=
 
 # Serial port/Device for flashing
@@ -42,6 +42,12 @@ BIN_DIR		 = $(ROOT)/obj
 
 # Source files common to all targets
 COMMON_SRC	 = buzzer.c \
+		   kalman.c \
+		   attitude_estimation.c \
+		   sini.c \
+		   i64sqrt.c \
+		   i32sqrt.c \
+		   atan2i.c \
 		   cli.c \
 		   config.c \
 		   imu.c \
@@ -163,7 +169,7 @@ CFLAGS		 = $(ARCH_FLAGS) \
 		   $(addprefix -D,$(OPTIONS)) \
 		   $(addprefix -I,$(INCLUDE_DIRS)) \
 		   $(DEBUG_FLAGS) \
-		   -std=gnu99 \
+		   -std=c99 \
 		   -Wall -pedantic -Wextra -Wshadow -Wunsafe-loop-optimizations \
 		   -ffunction-sections \
 		   -fdata-sections \

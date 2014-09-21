@@ -13,6 +13,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 
 #include "stm32f10x_conf.h"
@@ -27,13 +28,16 @@
 #include "drv_system.h"         // timers, delays, etc
 #include "drv_gpio.h"
 #include "utils.h"
+#include "sini.h"
+#include "i64sqrt.h"
+#include "atan2i.h"
 
 #ifndef M_PI
 #define M_PI       3.14159265358979323846f
 #endif /* M_PI */
 
-#define RADX10 (M_PI / 1800.0f)                  // 0.001745329252f
-#define RAD    (M_PI / 180.0f)
+#define RADX10 0.001745329252f  /* (M_PI/1800.0f) */
+#define RAD    0.01745329252f   /* (M_PI/180.0f) */
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -171,12 +175,13 @@ typedef struct sensor_data_t {
 } sensor_data_t;
 
 typedef void (*sensorInitFuncPtr)(sensor_align_e align);   // sensor init prototype
-typedef void (*sensorReadFuncPtr)(int16_t *data);          // sensor read and align prototype
+typedef void (*sensorReadFuncPtr)(int32_t *data);          // sensor read and align prototype
 typedef void (*baroOpFuncPtr)(void);                       // baro start operation
 typedef void (*baroCalculateFuncPtr)(int32_t *pressure, int32_t *temperature);             // baro calculation (filled params are pressure and temperature)
 typedef void (*serialReceiveCallbackPtr)(uint16_t data);   // used by serial drivers to return frames to app
 typedef uint16_t (*rcReadRawDataPtr)(uint8_t chan);        // used by receiver driver to return channel data
 typedef void (*pidControllerFuncPtr)(void);                // pid controller function prototype
+typedef int32_t (*gyroScaleRawToDPS)( int32_t raw, unsigned int scale_factor );
 
 typedef struct sensor_t {
     sensorInitFuncPtr init;                                 // initialize function
