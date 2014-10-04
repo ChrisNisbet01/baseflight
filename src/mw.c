@@ -151,12 +151,22 @@ void annexCode(void)
     rcCommand[THROTTLE] = lookupThrottleRC[tmp2] + (tmp - tmp2 * 100) * (lookupThrottleRC[tmp2 + 1] - lookupThrottleRC[tmp2]) / 100;    // [0;1000] -> expo -> [MINTHROTTLE;MAXTHROTTLE]
 
     if (f.HEADFREE_MODE) {
+#if 0
         float radDiff = (heading - headFreeModeHold) * M_PI / 180.0f;
         float cosDiff = cosf(radDiff);
         float sinDiff = sinf(radDiff);
         int32_t rcCommand_PITCH = rcCommand[PITCH] * cosDiff + rcCommand[ROLL] * sinDiff;
         rcCommand[ROLL] = rcCommand[ROLL] * cosDiff - rcCommand[PITCH] * sinDiff;
         rcCommand[PITCH] = rcCommand_PITCH;
+#else
+        int32_t headFreeDiff = (heading - headFreeModeHold);
+        int32_t cosDiff = cosi(headFreeDiff, 1);
+        float sinDiff = sini(headFreeDiff, 1);
+        int32_t rcCommand_PITCH = DIVIDE_WITH_ROUNDING((int32_t)rcCommand[PITCH] * cosDiff + (int32_t)rcCommand[ROLL] * sinDiff, SINE_RANGE);
+        
+        rcCommand[ROLL] = DIVIDE_WITH_ROUNDING((int32_t)rcCommand[ROLL] * cosDiff - (int32_t)rcCommand[PITCH] * sinDiff, SINE_RANGE);
+        rcCommand[PITCH] = rcCommand_PITCH;
+#endif
     }
 
     if (feature(FEATURE_VBAT)) {
