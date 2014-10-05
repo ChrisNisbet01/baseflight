@@ -39,10 +39,10 @@ void ak8975Init(sensor_align_e align)
     i2cWrite(AK8975_MAG_I2C_ADDRESS, AK8975_MAG_CONTROL_ADDRESS, 0x01); // start reading
 }
 
-void ak8975Read(int16_t *magData)
+void ak8975Read(int32_t *magData)
 {
     uint8_t buf[6];
-    int16_t mag[3];
+    int32_t mag[3];
     
     i2cRead(AK8975_MAG_I2C_ADDRESS, AK8975_MAG_DATA_ADDRESS, 6, buf);
     // align sensors to match MPU6050:
