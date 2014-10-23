@@ -8,7 +8,7 @@
 # Makefile for building the cleanflight firmware.
 #
 # Invoke this with 'make help' to see the list of supported targets.
-# 
+#
 
 ###############################################################################
 # Things that the user might override on the commandline
@@ -25,6 +25,8 @@ OPBL ?=no
 
 # Debugger optons, must be empty or GDB
 DEBUG ?=
+
+COOS ?=no
 
 # Serial port/Device for flashing
 SERIAL_DEVICE	?= /dev/ttyUSB0
@@ -50,9 +52,15 @@ BIN_DIR		 = $(ROOT)/obj
 CMSIS_DIR	 = $(ROOT)/lib/main/CMSIS
 INCLUDE_DIRS = $(SRC_DIR)
 LINKER_DIR   = $(ROOT)/src/main/target
+COOS_DIR     = $(ROOT)/src/main/coos
 
 # Search path for sources
 VPATH		:= $(SRC_DIR):$(SRC_DIR)/startup
+
+COOS_SRC     = $(notdir $(wildcard $(COOS_DIR)/kernel/*.c \
+               $(COOS_DIR)/portable/*.c \
+			   $(COOS_DIR)/portable/GCC/*.c))
+
 
 ifeq ($(TARGET),$(filter $(TARGET),STM32F3DISCOVERY CHEBUZZF3 NAZE32PRO MASSIVEF3))
 
@@ -420,6 +428,18 @@ endif
 # Search path and source files for the ST stdperiph library
 VPATH		:= $(VPATH):$(STDPERIPH_DIR)/src
 
+ifeq ($(COOS),yes)
+VPATH		:= $(VPATH):$(COOS_DIR)/kernel
+VPATH		:= $(VPATH):$(COOS_DIR)/portable/GCC
+VPATH		:= $(VPATH):$(COOS_DIR)/portable
+INCLUDE_DIRS := $(INCLUDE_DIRS) \
+		   $(COOS_DIR) \
+		   $(COOS_DIR)/kernel \
+		   $(COOS_DIR)/portable
+TARGET_FLAGS := $(TARGET_FLAGS) -DCLEANFLIGHT_COOS
+endif
+
+
 ###############################################################################
 # Things that might need changing to use different tools
 #
@@ -438,7 +458,14 @@ OPTIMIZE	 = -O0
 LTO_FLAGS	 = $(OPTIMIZE)
 else
 OPTIMIZE	 = -Os
+
+ifeq ($(COOS),yes)
+# get errors if -lto option is used with COOS
+LTO_FLAGS	 = -fuse-linker-plugin $(OPTIMIZE)
+else
 LTO_FLAGS	 = -flto -fuse-linker-plugin $(OPTIMIZE)
+endif
+
 endif
 
 DEBUG_FLAGS	 = -ggdb3
@@ -494,6 +521,10 @@ TARGET_HEX	 = $(BIN_DIR)/$(FORKNAME)_$(TARGET).hex
 TARGET_ELF	 = $(OBJECT_DIR)/$(FORKNAME)_$(TARGET).elf
 TARGET_OBJS	 = $(addsuffix .o,$(addprefix $(OBJECT_DIR)/$(TARGET)/,$(basename $($(TARGET)_SRC))))
 TARGET_DEPS	 = $(addsuffix .d,$(addprefix $(OBJECT_DIR)/$(TARGET)/,$(basename $($(TARGET)_SRC))))
+ifeq ($(COOS),yes)
+TARGET_OBJS	 := $(addsuffix .o,$(addprefix $(OBJECT_DIR)/coos/,$(basename $(COOS_SRC)))) $(TARGET_OBJS)
+TARGET_DEPS	 := $(addsuffix .d,$(addprefix $(OBJECT_DIR)/$(TARGET)/,$(basename $($(TARGET)_SRC)))) $(TARGET_DEPS)
+endif
 TARGET_MAP	 = $(OBJECT_DIR)/$(FORKNAME)_$(TARGET).map
 
 # List of buildable ELF files and their object dependencies.
@@ -507,13 +538,19 @@ $(TARGET_BIN): $(TARGET_ELF)
 
 $(TARGET_ELF):  $(TARGET_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
-	$(SIZE) $(TARGET_ELF) 
+	$(SIZE) $(TARGET_ELF)
 
 # Compile
 $(OBJECT_DIR)/$(TARGET)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@echo %% $(notdir $<)
 	@$(CC) -c -o $@ $(CFLAGS) $<
+
+$(OBJECT_DIR)/coos/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo %% $(notdir $<)
+	@$(CC) -c -o $@ $(CFLAGS) $<
+
 
 # Assemble
 $(OBJECT_DIR)/$(TARGET)/%.o: %.s
@@ -524,7 +561,7 @@ $(OBJECT_DIR)/$(TARGET)/%.o: %.s
 $(OBJECT_DIR)/$(TARGET)/%.o: %.S
 	@mkdir -p $(dir $@)
 	@echo %% $(notdir $<)
-	@$(CC) -c -o $@ $(ASFLAGS) $< 
+	@$(CC) -c -o $@ $(ASFLAGS) $<
 
 clean:
 	rm -f $(TARGET_BIN) $(TARGET_HEX) $(TARGET_ELF) $(TARGET_OBJS) $(TARGET_MAP)

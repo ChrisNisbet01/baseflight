@@ -19,7 +19,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
+#if defined(CLEANFLIGHT_COOS)
+#include <coos.h>
+#endif
 #include "platform.h"
 
 #include "common/axis.h"
@@ -386,7 +388,7 @@ void init(void)
 }
 
 #ifdef SOFTSERIAL_LOOPBACK
-void processLoopback(void) {
+static void processLoopback(void) {
     if (loopbackPort) {
         uint8_t bytesWaiting;
         while ((bytesWaiting = serialTotalBytesWaiting(loopbackPort))) {
@@ -395,17 +397,55 @@ void processLoopback(void) {
         };
     }
 }
-#else
-#define processLoopback()
+#endif
+
+static void mainLoop( void )
+{
+    while (1) {
+        loop();
+#ifdef SOFTSERIAL_LOOPBACK
+        processLoopback();
+#endif
+    }
+}
+
+#if defined(CLEANFLIGHT_COOS)
+#define MAIN_TASK_PRIO	0
+#define MAIN_TASK_SIZE	0x100
+static OS_TID main_task_id;
+
+static void mainTask( void *pv )
+{
+	UNUSED(pv);
+
+	mainLoop();
+}
+
+void createCoosTasks( void )
+{
+	static OS_STK main_task_stack[MAIN_TASK_SIZE] = {0};
+
+	main_task_id = CoCreateTask( mainTask, Co_NULL, MAIN_TASK_PRIO, &main_task_stack[MAIN_TASK_SIZE-1], MAIN_TASK_SIZE );
+	// TODO: Serial IO task
+}
+
 #endif
 
 int main(void) {
+
+#if defined(CLEANFLIGHT_COOS)
+	CoInitOS();
+#endif
+
     init();
 
-    while (1) {
-        loop();
-        processLoopback();
-    }
+#if defined(CLEANFLIGHT_COOS)
+	createCoosTasks();
+
+	CoStartOS();
+#else
+	mainLoop();
+#endif
 }
 
 void HardFault_Handler(void)

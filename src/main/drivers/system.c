@@ -18,6 +18,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#if defined(CLEANFLIGHT_COOS)
+#include <coos.h>
+#endif
 
 #include "platform.h"
 
@@ -46,6 +49,9 @@ static void cycleCounterInit(void)
 void SysTick_Handler(void)
 {
     sysTickUptime++;
+#if defined(CLEANFLIGHT_COOS)
+	CoOS_SysTick_Handler();
+#endif
 }
 
 // Return system uptime in microseconds (rollover in 70minutes)
