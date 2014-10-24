@@ -32,18 +32,14 @@
 #include "nvic.h"
 
 #include "system.h"
+#if defined(CLEANFLIGHT_COOS)
+#include <cf_coos.h>
+#endif
 
 // cycles per microsecond
 static volatile uint32_t usTicks = 0;
 // current uptime for 1kHz systick timer. will rollover after 49 days. hopefully we won't care.
 static volatile uint32_t sysTickUptime = 0;
-#if defined(CLEANFLIGHT_COOS)
-#define SYSTICK_FREQUENCY			(10000)
-#else
-#define SYSTICK_FREQUENCY			(1000)
-#endif
-#define SYSTICK_PERIOD_IN_USECS		(1000000/(SYSTICK_FREQUENCY))
-#define SYSTICK_TICKS_PER_MILLSEC	(1000/(SYSTICK_PERIOD_IN_USECS))
 
 static void cycleCounterInit(void)
 {
@@ -59,33 +55,7 @@ void SysTick_Handler(void)
     sysTickUptime++;
 
 #if defined(CLEANFLIGHT_COOS)
-	static unsigned int mainLoopTicker;
-	static unsigned int CoOSTicker;
-
-	CoEnterISR();
-
-	CoOSTicker++;
-	if ( CoOSTicker >= SYSTICK_TICKS_PER_MILLSEC )	/* once per millisecond */
-	{
-		CoOSTicker = 0;
-		CoOS_SysTick_Handler();
-	}
-
-	/* update the main loop counter */
-	mainLoopTicker += SYSTICK_PERIOD_IN_USECS;
-	if ( mainLoopTicker >= getMainLoopTimeCfg() )	/* once per configured loop time */
-	{
-		extern OS_FlagID mainLoopFlagID;
-
-		static unsigned int last_micros;
-		unsigned int now = micros();
-		mainLoopTicker = 0;
-		debug[1] = now - last_micros;
-		last_micros = now;
-		isr_SetFlag( mainLoopFlagID );
-	}
-
-	CoExitISR();
+	CoosSysTickHandler();
 #endif
 
 }
@@ -104,7 +74,7 @@ uint32_t micros(void)
 // Return system uptime in milliseconds (rollover in 49 days)
 uint32_t millis(void)
 {
-    return sysTickUptime/SYSTICK_TICKS_PER_MILLSEC;
+    return sysTickUptime/SYSTICK_TICKS_PER_MILLISEC;
 }
 
 void systemInit(void)

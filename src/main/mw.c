@@ -618,11 +618,12 @@ void loop(void)
 
 #if defined(CLEANFLIGHT_COOS)
 	if ( CoAcceptSingleFlag( mainLoopFlagID ) == E_OK )
-	{
 #else
     currentTime = micros();
     if (masterConfig.looptime == 0 || (int32_t)(currentTime - loopTime) >= 0)
-    {
+#endif
+	{
+#if !defined(CLEANFLIGHT_COOS)
         loopTime = currentTime + masterConfig.looptime;
 #endif
 

@@ -17,6 +17,19 @@
 
 #pragma once
 
+/*
+	NB - These macros will need modification if the desired SYSTICK frequency
+	is < 1000Hz.
+*/
+#if defined(CLEANFLIGHT_COOS)
+#define SYSTICK_FREQUENCY			(10000)
+#else
+#define SYSTICK_FREQUENCY			(1000)
+#endif
+#define SYSTICK_PERIOD_IN_USECS		(1000000/(SYSTICK_FREQUENCY))
+#define SYSTICK_TICKS_PER_MILLISEC	(1000/(SYSTICK_PERIOD_IN_USECS))
+
+
 void systemInit(void);
 void delayMicroseconds(uint32_t us);
 void delay(uint32_t ms);

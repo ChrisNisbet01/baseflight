@@ -59,7 +59,8 @@ VPATH		:= $(SRC_DIR):$(SRC_DIR)/startup
 
 COOS_SRC     = $(notdir $(wildcard $(COOS_DIR)/kernel/*.c \
                $(COOS_DIR)/portable/*.c \
-			   $(COOS_DIR)/portable/GCC/*.c))
+			   $(COOS_DIR)/portable/GCC/*.c)) \
+			   $(SRC_DIR)/cf_coos.c
 
 
 ifeq ($(TARGET),$(filter $(TARGET),STM32F3DISCOVERY CHEBUZZF3 NAZE32PRO MASSIVEF3))

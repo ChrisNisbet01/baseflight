@@ -19,9 +19,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(CLEANFLIGHT_COOS)
-#include <coos.h>
-#endif
 #include "platform.h"
 
 #include "common/axis.h"
@@ -79,6 +76,10 @@
 #endif
 
 #include "build_config.h"
+#if defined(CLEANFLIGHT_COOS)
+#include <coos.h>
+#include <cf_coos.h>
+#endif
 
 #ifdef DEBUG_SECTION_TIMES
 uint32_t sectionTimes[2][4];
@@ -399,7 +400,7 @@ static void processLoopback(void) {
 }
 #endif
 
-static void mainLoop( void )
+void mainLoop( void )
 {
     while (1) {
         loop();
@@ -409,47 +410,17 @@ static void mainLoop( void )
     }
 }
 
-#if defined(CLEANFLIGHT_COOS)
-#define MAIN_TASK_PRIO	0
-#define MAIN_TASK_SIZE	0x100
-static OS_TID main_task_id;
-OS_FlagID mainLoopFlagID;
-
-static void mainTask( void *pv )
-{
-	UNUSED(pv);
-
-	mainLoop();
-}
-
-static void createCoosTasks( void )
-{
-	static OS_STK main_task_stack[MAIN_TASK_SIZE] = {0};
-
-	main_task_id = CoCreateTask( mainTask, Co_NULL, MAIN_TASK_PRIO, &main_task_stack[MAIN_TASK_SIZE-1], MAIN_TASK_SIZE );
-	// TODO: Serial IO task
-}
-
-static void initCoosResources( void )
-{
-	/* create the main loop flag */
-	mainLoopFlagID = CoCreateFlag( 1, 0 );
-}
-#endif
-
 int main(void) {
 
 #if defined(CLEANFLIGHT_COOS)
-	CoInitOS();
-	initCoosResources();
+	/* Do CoOS init before Cleanflight init */
+	initCoos();
 #endif
 
     init();
 
 #if defined(CLEANFLIGHT_COOS)
-	createCoosTasks();
-
-	CoStartOS();
+	startCoos();
 #else
 	mainLoop();
 #endif
