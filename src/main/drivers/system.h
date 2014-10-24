@@ -23,6 +23,7 @@ void delay(uint32_t ms);
 
 uint32_t micros(void);
 uint32_t millis(void);
+unsigned int getMainLoopTimeCfg( void );
 
 // failure
 void failureMode(uint8_t mode);

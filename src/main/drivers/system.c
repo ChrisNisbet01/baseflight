@@ -37,6 +37,13 @@
 static volatile uint32_t usTicks = 0;
 // current uptime for 1kHz systick timer. will rollover after 49 days. hopefully we won't care.
 static volatile uint32_t sysTickUptime = 0;
+#if defined(CLEANFLIGHT_COOS)
+#define SYSTICK_FREQUENCY			(10000)
+#else
+#define SYSTICK_FREQUENCY			(1000)
+#endif
+#define SYSTICK_PERIOD_IN_USECS		(1000000/(SYSTICK_FREQUENCY))
+#define SYSTICK_TICKS_PER_MILLSEC	(1000/(SYSTICK_PERIOD_IN_USECS))
 
 static void cycleCounterInit(void)
 {
@@ -48,27 +55,56 @@ static void cycleCounterInit(void)
 // SysTick
 void SysTick_Handler(void)
 {
+	/* called every SYSTICK_PERIOD_IN_USECS us */
     sysTickUptime++;
+
 #if defined(CLEANFLIGHT_COOS)
-	CoOS_SysTick_Handler();
+	static unsigned int mainLoopTicker;
+	static unsigned int CoOSTicker;
+
+	CoEnterISR();
+
+	CoOSTicker++;
+	if ( CoOSTicker >= SYSTICK_TICKS_PER_MILLSEC )	/* once per millisecond */
+	{
+		CoOSTicker = 0;
+		CoOS_SysTick_Handler();
+	}
+
+	/* update the main loop counter */
+	mainLoopTicker += SYSTICK_PERIOD_IN_USECS;
+	if ( mainLoopTicker >= getMainLoopTimeCfg() )	/* once per configured loop time */
+	{
+		extern OS_FlagID mainLoopFlagID;
+
+		static unsigned int last_micros;
+		unsigned int now = micros();
+		mainLoopTicker = 0;
+		debug[1] = now - last_micros;
+		last_micros = now;
+		isr_SetFlag( mainLoopFlagID );
+	}
+
+	CoExitISR();
 #endif
+
 }
 
 // Return system uptime in microseconds (rollover in 70minutes)
 uint32_t micros(void)
 {
-    register uint32_t ms, cycle_cnt;
+    register uint32_t sysTicks, cycle_cnt;
     do {
-        ms = sysTickUptime;
+        sysTicks = sysTickUptime;
         cycle_cnt = SysTick->VAL;
-    } while (ms != sysTickUptime);
-    return (ms * 1000) + (usTicks * 1000 - cycle_cnt) / usTicks;
+    } while (sysTicks != sysTickUptime);
+    return (sysTicks * SYSTICK_PERIOD_IN_USECS) + (usTicks * SYSTICK_PERIOD_IN_USECS - cycle_cnt) / usTicks;
 }
 
 // Return system uptime in milliseconds (rollover in 49 days)
 uint32_t millis(void)
 {
-    return sysTickUptime;
+    return sysTickUptime/SYSTICK_TICKS_PER_MILLSEC;
 }
 
 void systemInit(void)
@@ -103,7 +139,7 @@ void systemInit(void)
     cycleCounterInit();
 
     // SysTick
-    SysTick_Config(SystemCoreClock / 1000);
+    SysTick_Config(SystemCoreClock / SYSTICK_FREQUENCY);
 }
 
 #if 1

@@ -413,6 +413,7 @@ static void mainLoop( void )
 #define MAIN_TASK_PRIO	0
 #define MAIN_TASK_SIZE	0x100
 static OS_TID main_task_id;
+OS_FlagID mainLoopFlagID;
 
 static void mainTask( void *pv )
 {
@@ -421,7 +422,7 @@ static void mainTask( void *pv )
 	mainLoop();
 }
 
-void createCoosTasks( void )
+static void createCoosTasks( void )
 {
 	static OS_STK main_task_stack[MAIN_TASK_SIZE] = {0};
 
@@ -429,12 +430,18 @@ void createCoosTasks( void )
 	// TODO: Serial IO task
 }
 
+static void initCoosResources( void )
+{
+	/* create the main loop flag */
+	mainLoopFlagID = CoCreateFlag( 1, 0 );
+}
 #endif
 
 int main(void) {
 
 #if defined(CLEANFLIGHT_COOS)
 	CoInitOS();
+	initCoosResources();
 #endif
 
     init();

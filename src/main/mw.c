@@ -69,7 +69,10 @@
 #include "config/config.h"
 #include "config/config_profile.h"
 #include "config/config_master.h"
-
+#if defined(CLEANFLIGHT_COOS)
+#include <coos.h>
+#include <cf_coos.h>
+#endif
 // June 2013     V2.2-dev
 
 enum {
@@ -570,9 +573,17 @@ void processRx(void)
     }
 }
 
+unsigned int getMainLoopTimeCfg( void )
+{
+	return masterConfig.looptime;
+}
+
 void loop(void)
 {
+#if !defined(CLEANFLIGHT_COOS)
     static uint32_t loopTime;
+#endif
+
 #if defined(BARO) || defined(SONAR)
     static bool haveProcessedAnnexCodeOnce = false;
 #endif
@@ -605,9 +616,15 @@ void loop(void)
         executePeriodicTasks();
     }
 
+#if defined(CLEANFLIGHT_COOS)
+	if ( CoAcceptSingleFlag( mainLoopFlagID ) == E_OK )
+	{
+#else
     currentTime = micros();
-    if (masterConfig.looptime == 0 || (int32_t)(currentTime - loopTime) >= 0) {
+    if (masterConfig.looptime == 0 || (int32_t)(currentTime - loopTime) >= 0)
+    {
         loopTime = currentTime + masterConfig.looptime;
+#endif
 
         computeIMU(&currentProfile->accelerometerTrims, masterConfig.mixerConfiguration);
 
