@@ -383,80 +383,128 @@ typedef enum {
 #if defined(BARO) || defined(SONAR)
     CALCULATE_ALTITUDE_TASK,
 #endif
+#ifdef GPS
     UPDATE_GPS_TASK,
-    UPDATE_DISPLAY_TASK
+#endif
+#ifdef DISPLAY
+    UPDATE_DISPLAY_TASK,
+#endif
+    PERIODIC_TASK_COUNT
 } periodicTasks;
 
-#define PERIODIC_TASK_COUNT (UPDATE_DISPLAY_TASK + 1)
+typedef void (*periodicTaskFn)( void );
+#ifdef MAG
+static void update_compass_task();
+#endif
+#ifdef BARO
+static void update_baro_task();
+#endif
+#ifdef SONAR
+static void update_sonar_task();
+#endif
+#if defined(BARO) || defined(SONAR)
+static void calculate_altitude_task();
+#endif
+#ifdef GPS
+static void update_gps_task();
+#endif
+#ifdef DISPLAY
+static void update_display_task();
+#endif
+static const periodicTaskFn const periodicTaskFns[] = {
+#ifdef MAG
+	[UPDATE_COMPASS_TASK] = update_compass_task,
+#endif
+#ifdef BARO
+    [UPDATE_BARO_TASK] = update_baro_task,
+#endif
+#ifdef SONAR
+    [UPDATE_SONAR_TASK] = update_sonar_task,
+#endif
+#if defined(BARO) || defined(SONAR)
+    [CALCULATE_ALTITUDE_TASK] = calculate_altitude_task,
+#endif
+#ifdef GPS
+    [UPDATE_GPS_TASK] = update_gps_task,
+#endif
+#ifdef DISPLAY
+    [UPDATE_DISPLAY_TASK] = update_display_task,
+#endif
+	NULL	/* ensure table is never empty */
+};
+#define PERIODIC_TASK_TABLE_SIZE (sizeof periodicTaskFns/sizeof periodicTaskFns[0])
 
+#ifdef MAG
+static void update_compass_task()
+{
+    if (sensors(SENSOR_MAG)) {
+        updateCompass(&masterConfig.magZero);
+    }
+}
+#endif
+#ifdef BARO
+static void update_baro_task()
+{
+    if (sensors(SENSOR_BARO)) {
+        baroUpdate(currentTime);
+    }
+}
+#endif
+#ifdef SONAR
+static void update_sonar_task()
+{
+    if (sensors(SENSOR_SONAR)) {
+        Sonar_update();
+    }
+}
+#endif
+#if defined(BARO) || defined(SONAR)
+static void calculate_altitude_task()
+{
+#if defined(BARO) && !defined(SONAR)
+    if (sensors(SENSOR_BARO) && isBaroReady()) {
+#endif
+#if defined(BARO) && defined(SONAR)
+    if ((sensors(SENSOR_BARO) && isBaroReady()) || sensors(SENSOR_SONAR)) {
+#endif
+#if !defined(BARO) && defined(SONAR)
+    if (sensors(SENSOR_SONAR)) {
+#endif
+        calculateEstimatedAltitude(currentTime);
+    }
+}
+#endif
+#ifdef GPS
+static void update_gps_task()
+{
+    // if GPS feature is enabled, gpsThread() will be called at some intervals to check for stuck
+    // hardware, wrong baud rates, init GPS if needed, etc. Don't use SENSOR_GPS here as gpsThread() can and will
+    // change this based on available hardware
+    if (feature(FEATURE_GPS)) {
+        gpsThread();
+    }
+}
+#endif
+#ifdef DISPLAY
+static void update_display_task()
+{
+    if (feature(FEATURE_DISPLAY)) {
+        updateDisplay();
+    }
+}
+#endif
 
 void executePeriodicTasks(void)
 {
-    static int periodicTaskIndex = 0;
+    static unsigned int periodicTaskIndex = 0;
 
-    switch (periodicTaskIndex++) {
-#ifdef MAG
-    case UPDATE_COMPASS_TASK:
-        if (sensors(SENSOR_MAG)) {
-            updateCompass(&masterConfig.magZero);
-        }
-        break;
-#endif
-
-#ifdef BARO
-    case UPDATE_BARO_TASK:
-        if (sensors(SENSOR_BARO)) {
-            baroUpdate(currentTime);
-        }
-        break;
-#endif
-
-#if defined(BARO) || defined(SONAR)
-    case CALCULATE_ALTITUDE_TASK:
-
-#if defined(BARO) && !defined(SONAR)
-        if (sensors(SENSOR_BARO) && isBaroReady()) {
-#endif
-#if defined(BARO) && defined(SONAR)
-        if ((sensors(SENSOR_BARO) && isBaroReady()) || sensors(SENSOR_SONAR)) {
-#endif
-#if !defined(BARO) && defined(SONAR)
-        if (sensors(SENSOR_SONAR)) {
-#endif
-            calculateEstimatedAltitude(currentTime);
-        }
-        break;
-#endif
-
-#ifdef GPS
-    case UPDATE_GPS_TASK:
-        // if GPS feature is enabled, gpsThread() will be called at some intervals to check for stuck
-        // hardware, wrong baud rates, init GPS if needed, etc. Don't use SENSOR_GPS here as gpsThread() can and will
-        // change this based on available hardware
-        if (feature(FEATURE_GPS)) {
-            gpsThread();
-        }
-        break;
-#endif
-#ifdef SONAR
-    case UPDATE_SONAR_TASK:
-        if (sensors(SENSOR_SONAR)) {
-            Sonar_update();
-        }
-        break;
-#endif
-#ifdef DISPLAY
-    case UPDATE_DISPLAY_TASK:
-        if (feature(FEATURE_DISPLAY)) {
-            updateDisplay();
-        }
-        break;
-#endif
-    }
-
-    if (periodicTaskIndex >= PERIODIC_TASK_COUNT) {
-        periodicTaskIndex = 0;
-    }
+	if ( periodicTaskIndex >= PERIODIC_TASK_TABLE_SIZE-1 )
+		periodicTaskIndex = 0;
+	if ( periodicTaskFns[periodicTaskIndex] != NULL )
+	{
+		periodicTaskFns[periodicTaskIndex]();
+		periodicTaskIndex++;
+	}
 }
 
 void processRx(void)
