@@ -8,7 +8,7 @@
 # Makefile for building the cleanflight firmware.
 #
 # Invoke this with 'make help' to see the list of supported targets.
-# 
+#
 
 ###############################################################################
 # Things that the user might override on the commandline
@@ -507,7 +507,7 @@ $(TARGET_BIN): $(TARGET_ELF)
 
 $(TARGET_ELF):  $(TARGET_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
-	$(SIZE) $(TARGET_ELF) 
+	$(SIZE) $(TARGET_ELF)
 
 # Compile
 $(OBJECT_DIR)/$(TARGET)/%.o: %.c
@@ -524,7 +524,7 @@ $(OBJECT_DIR)/$(TARGET)/%.o: %.s
 $(OBJECT_DIR)/$(TARGET)/%.o: %.S
 	@mkdir -p $(dir $@)
 	@echo %% $(notdir $<)
-	@$(CC) -c -o $@ $(ASFLAGS) $< 
+	@$(CC) -c -o $@ $(ASFLAGS) $<
 
 clean:
 	rm -f $(TARGET_BIN) $(TARGET_HEX) $(TARGET_ELF) $(TARGET_OBJS) $(TARGET_MAP)
