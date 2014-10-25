@@ -164,22 +164,40 @@ void normalizeV(struct fp_vector *src, struct fp_vector *dest)
     }
 }
 
+static float cosf_approximation( float radians )
+{
+	return 1.0f - (radians * radians)/2.0f;
+}
+
 // Rotate Estimated vector(s) with small angle approximation, according to the gyro data
-void rotateV(struct fp_vector *v, fp_angles_t *delta)
+void rotateV(struct fp_vector *v, fp_angles_t *delta, int use_approximation)
 {
     struct fp_vector v_tmp = *v;
 
-    // This does a  "proper" matrix rotation using gyro deltas without small-angle approximation
     float mat[3][3];
     float cosx, sinx, cosy, siny, cosz, sinz;
     float coszcosx, sinzcosx, coszsinx, sinzsinx;
 
-    cosx = cosf(delta->angles.roll);
-    sinx = sinf(delta->angles.roll);
-    cosy = cosf(delta->angles.pitch);
-    siny = sinf(delta->angles.pitch);
-    cosz = cosf(delta->angles.yaw);
-    sinz = sinf(delta->angles.yaw);
+	if ( use_approximation != 0 )
+	{
+		/* we assume the angle is small (< approx. 20 degrees) */
+	    cosx = cosf_approximation(delta->angles.roll);
+	    sinx = delta->angles.roll;
+	    cosy = cosf_approximation(delta->angles.pitch);
+	    siny = delta->angles.pitch;
+	    cosz = cosf_approximation(delta->angles.yaw);
+	    sinz = delta->angles.yaw;
+	}
+	else
+	{
+	    // This does a  "proper" matrix rotation using gyro deltas without small-angle approximation
+	    cosx = cosf(delta->angles.roll);
+	    sinx = sinf(delta->angles.roll);
+	    cosy = cosf(delta->angles.pitch);
+	    siny = sinf(delta->angles.pitch);
+	    cosz = cosf(delta->angles.yaw);
+	    sinz = sinf(delta->angles.yaw);
+	}
 
     coszcosx = cosz * cosx;
     sinzcosx = sinz * cosx;
@@ -231,7 +249,7 @@ void acc_calc(uint32_t deltaT)
     accel_ned.V.Y = accSmooth[1];
     accel_ned.V.Z = accSmooth[2];
 
-    rotateV(&accel_ned.V, &rpy);
+    rotateV(&accel_ned.V, &rpy, 0);
 
     if (imuRuntimeConfig->acc_unarmedcal == 1) {
         if (!ARMING_FLAG(ARMED)) {
@@ -302,7 +320,7 @@ static void getEstimatedAttitude(void)
     }
     accMag = accMag * 100 / ((int32_t)acc_1G * acc_1G);
 
-    rotateV(&EstG.V, &deltaGyroAngle);
+    rotateV(&EstG.V, &deltaGyroAngle, 1);
 
     // Apply complimentary filter (Gyro drift correction)
     // If accel magnitude >1.15G or <0.85G and ACC vector outside of the limit range => we neutralize the effect of accelerometers in the angle estimation.
@@ -328,7 +346,7 @@ static void getEstimatedAttitude(void)
     inclination.values.pitchDeciDegrees = lrintf(anglerad[AI_PITCH] * (1800.0f / M_PI));
 
     if (sensors(SENSOR_MAG)) {
-        rotateV(&EstM.V, &deltaGyroAngle);
+        rotateV(&EstM.V, &deltaGyroAngle, 1);
         // FIXME what does the _M_ mean?
         float invGyroComplimentaryFilter_M_Factor = (1.0f / (imuRuntimeConfig->gyro_cmpfm_factor + 1.0f));
         for (axis = 0; axis < 3; axis++) {
@@ -336,7 +354,7 @@ static void getEstimatedAttitude(void)
         }
         heading = calculateHeading(&EstM);
     } else {
-        rotateV(&EstN.V, &deltaGyroAngle);
+        rotateV(&EstN.V, &deltaGyroAngle, 1);
         normalizeV(&EstN.V, &EstN.V);
         heading = calculateHeading(&EstN);
     }
