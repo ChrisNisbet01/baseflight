@@ -58,10 +58,10 @@ COOS_DIR     = $(ROOT)/src/main/coos
 VPATH		:= $(SRC_DIR):$(SRC_DIR)/startup
 
 COOS_SRC     = $(notdir $(wildcard $(COOS_DIR)/kernel/*.c \
-               $(COOS_DIR)/portable/*.c \
-			   $(COOS_DIR)/portable/GCC/*.c)) \
+               $(COOS_DIR)/portable/*.c)) \
 			   $(SRC_DIR)/cf_coos.c
 
+COOS_SRC_NO_LTO     = $(notdir $(wildcard $(COOS_DIR)/portable/GCC/*.c))
 
 ifeq ($(TARGET),$(filter $(TARGET),STM32F3DISCOVERY CHEBUZZF3 NAZE32PRO MASSIVEF3))
 
@@ -430,9 +430,7 @@ endif
 VPATH		:= $(VPATH):$(STDPERIPH_DIR)/src
 
 ifeq ($(COOS),yes)
-VPATH		:= $(VPATH):$(COOS_DIR)/kernel
-VPATH		:= $(VPATH):$(COOS_DIR)/portable/GCC
-VPATH		:= $(VPATH):$(COOS_DIR)/portable
+VPATH		:= $(VPATH):$(COOS_DIR)/kernel:$(COOS_DIR)/portable/GCC:$(COOS_DIR)/portable
 INCLUDE_DIRS := $(INCLUDE_DIRS) \
 		   $(COOS_DIR) \
 		   $(COOS_DIR)/kernel \
@@ -459,14 +457,7 @@ OPTIMIZE	 = -O0
 LTO_FLAGS	 = $(OPTIMIZE)
 else
 OPTIMIZE	 = -Os
-
-ifeq ($(COOS),yes)
-# get errors if -lto option is used with COOS
-LTO_FLAGS	 = -fuse-linker-plugin $(OPTIMIZE)
-else
 LTO_FLAGS	 = -flto -fuse-linker-plugin $(OPTIMIZE)
-endif
-
 endif
 
 DEBUG_FLAGS	 = -ggdb3
@@ -506,6 +497,9 @@ LDFLAGS		 = -lm \
 		   -Wl,-gc-sections,-Map,$(TARGET_MAP) \
 		   -T$(LD_SCRIPT)
 
+# make fails in including CoOS files if lto is performed on some files
+CFLAGS_NO_LTO := $(filter-out -flto, $(CFLAGS))
+
 ###############################################################################
 # No user-serviceable parts below
 ###############################################################################
@@ -524,7 +518,9 @@ TARGET_OBJS	 = $(addsuffix .o,$(addprefix $(OBJECT_DIR)/$(TARGET)/,$(basename $(
 TARGET_DEPS	 = $(addsuffix .d,$(addprefix $(OBJECT_DIR)/$(TARGET)/,$(basename $($(TARGET)_SRC))))
 ifeq ($(COOS),yes)
 TARGET_OBJS	 := $(addsuffix .o,$(addprefix $(OBJECT_DIR)/coos/,$(basename $(COOS_SRC)))) $(TARGET_OBJS)
-TARGET_DEPS	 := $(addsuffix .d,$(addprefix $(OBJECT_DIR)/$(TARGET)/,$(basename $($(TARGET)_SRC)))) $(TARGET_DEPS)
+TARGET_DEPS	 := $(addsuffix .d,$(addprefix $(OBJECT_DIR)/coos/,$(basename $(COOS_SRC)))) $(TARGET_DEPS)
+TARGET_OBJS	 := $(addsuffix .o,$(addprefix $(OBJECT_DIR)/coos_nolto/,$(basename $(COOS_SRC_NO_LTO)))) $(TARGET_OBJS)
+TARGET_DEPS	 := $(addsuffix .d,$(addprefix $(OBJECT_DIR)/coos_nolto/,$(basename $(COOS_SRC_NO_LTO)))) $(TARGET_DEPS)
 endif
 TARGET_MAP	 = $(OBJECT_DIR)/$(FORKNAME)_$(TARGET).map
 
@@ -547,6 +543,11 @@ $(OBJECT_DIR)/$(TARGET)/%.o: %.c
 	@echo %% $(notdir $<)
 	@$(CC) -c -o $@ $(CFLAGS) $<
 
+$(OBJECT_DIR)/coos_nolto/%.o: %.c
+	@mkdir -p $(dir $@)
+	@echo %% $(notdir $<)
+	@$(CC) -c -o $@ $(CFLAGS_NO_LTO) $<
+
 $(OBJECT_DIR)/coos/%.o: %.c
 	@mkdir -p $(dir $@)
 	@echo %% $(notdir $<)
@@ -566,7 +567,7 @@ $(OBJECT_DIR)/$(TARGET)/%.o: %.S
 
 clean:
 	rm -f $(TARGET_BIN) $(TARGET_HEX) $(TARGET_ELF) $(TARGET_OBJS) $(TARGET_MAP)
-	rm -rf $(OBJECT_DIR)/$(TARGET)
+	rm -rf $(OBJECT_DIR)/*/
 
 flash_$(TARGET): $(TARGET_HEX)
 	stty -F $(SERIAL_DEVICE) raw speed 115200 -crtscts cs8 -parenb -cstopb -ixon
