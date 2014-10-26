@@ -497,9 +497,6 @@ LDFLAGS		 = -lm \
 		   -Wl,-gc-sections,-Map,$(TARGET_MAP) \
 		   -T$(LD_SCRIPT)
 
-# make fails in including CoOS files if lto is performed on some files
-CFLAGS_NO_LTO := $(filter-out -flto, $(CFLAGS))
-
 ###############################################################################
 # No user-serviceable parts below
 ###############################################################################
@@ -543,6 +540,7 @@ $(OBJECT_DIR)/$(TARGET)/%.o: %.c
 	@echo %% $(notdir $<)
 	@$(CC) -c -o $@ $(CFLAGS) $<
 
+$(OBJECT_DIR)/coos_nolto/%.o: CFLAGS_NO_LTO=$(filter-out -flto, $(CFLAGS))
 $(OBJECT_DIR)/coos_nolto/%.o: %.c
 	@mkdir -p $(dir $@)
 	@echo %% $(notdir $<)
