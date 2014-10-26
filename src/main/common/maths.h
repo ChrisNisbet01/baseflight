@@ -34,6 +34,10 @@
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define abs(x) ((x) > 0 ? (x) : -(x))
 
+#define DIVIDE_WITH_ROUNDING( n, d ) divideWithRounding( (n), (d) )
+int32_t divideWithRounding( int32_t value, int32_t divisor );
+
+
 typedef struct stdev_t
 {
     float m_oldM, m_newM, m_oldS, m_newS;

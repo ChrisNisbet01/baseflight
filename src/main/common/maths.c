@@ -92,3 +92,11 @@ int scaleRange(int x, int srcMin, int srcMax, int destMin, int destMax) {
     return ((a / b) - (destMax - destMin)) + destMax;
 }
 
+int32_t divideWithRounding( int32_t value, int32_t divisor )
+{
+    int32_t d2 = divisor/2;
+
+    return ((value < 0) ? ((value-d2)/divisor) : ((value+d2)/divisor));
+}
+
+
