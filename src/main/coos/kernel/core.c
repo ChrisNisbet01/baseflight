@@ -197,8 +197,8 @@ void CoInitOS(void)
 {
 #if !defined(CLEANFLIGHT_COOS)
     InitSysTick();                /* Initialize system tick.                  */
-    InitInt();                    /* Initialize PendSV,SVC,SysTick interrupt  */
 #endif
+    InitInt();                    /* Initialize PendSV,SVC,SysTick interrupt  */
     CreateTCBList();              /* Create TCB list.                         */
 #if CFG_EVENT_EN > 0
     CreateEventList();            /* Create event control list.               */
