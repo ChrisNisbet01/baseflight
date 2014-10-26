@@ -6,13 +6,17 @@
 #include "drivers/system.h"
 #include "main.h"
 
-#define MAIN_TASK_PRIO	0
-#define MAIN_TASK_SIZE	0x100
+#define CONTROL_TASK_PRIO	0
+#define CONTROL_TASK_STACK_SIZE	0x100
+
+#define MAIN_TASK_PRIO	1
+#define MAIN_TASK_STACK_SIZE	0x100
 
 extern int16_t debug[4];
 
 static OS_TID main_task_id;
-OS_FlagID mainLoopFlagID;
+static OS_TID control_task_id;
+OS_FlagID controlLoopFlagID;
 
 static void mainTask( void *pv )
 {
@@ -22,18 +26,33 @@ static void mainTask( void *pv )
 	mainLoop();
 }
 
+static void controlTask( void *pv )
+{
+	UNUSED(pv);
+
+	/* run the controlLoop */
+	while( 1 )
+	{
+		if ( CoWaitForSingleFlag( controlLoopFlagID, 0 ) == E_OK )
+		{
+			executeControlLoopTasks();
+		}
+	}
+}
+
 static void createCoosTasks( void )
 {
-	static OS_STK main_task_stack[MAIN_TASK_SIZE] = {0};
+	static OS_STK control_task_stack[CONTROL_TASK_STACK_SIZE] = {0};
+	static OS_STK main_task_stack[MAIN_TASK_STACK_SIZE] = {0};
 
-	main_task_id = CoCreateTask( mainTask, Co_NULL, MAIN_TASK_PRIO, &main_task_stack[MAIN_TASK_SIZE-1], MAIN_TASK_SIZE );
-	// TODO: Low priority task
+	control_task_id = CoCreateTask( controlTask, Co_NULL, CONTROL_TASK_PRIO, &control_task_stack[CONTROL_TASK_STACK_SIZE-1], CONTROL_TASK_STACK_SIZE );
+	main_task_id = CoCreateTask( mainTask, Co_NULL, MAIN_TASK_PRIO, &main_task_stack[MAIN_TASK_STACK_SIZE-1], MAIN_TASK_STACK_SIZE );
 }
 
 static void initCoosResources( void )
 {
-	/* create the main loop flag */
-	mainLoopFlagID = CoCreateFlag( 1, 0 );
+	/* create the control loop flag */
+	controlLoopFlagID = CoCreateFlag( 1, 0 );
 }
 
 void initCoos( void )
@@ -68,14 +87,8 @@ void CoosSysTickHandler()
 	mainLoopTicker += SYSTICK_PERIOD_IN_USECS;
 	if ( mainLoopTicker >= getMainLoopTimeCfg() )	/* once per configured loop time */
 	{
-		extern OS_FlagID mainLoopFlagID;
-
-		static unsigned int last_micros;
-		unsigned int now = micros();
 		mainLoopTicker = 0;
-		debug[1] = now - last_micros;
-		last_micros = now;
-		isr_SetFlag( mainLoopFlagID );
+		isr_SetFlag( controlLoopFlagID );
 	}
 
 	CoExitISR();

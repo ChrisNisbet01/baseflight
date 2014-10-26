@@ -575,17 +575,74 @@ void processRx(void)
 
 unsigned int getMainLoopTimeCfg( void )
 {
-	return masterConfig.looptime;
+	return constrain( masterConfig.looptime, 2000, 10000 );
+}
+
+#if defined(BARO) || defined(SONAR)
+    static bool haveProcessedAnnexCodeOnce = false;
+#endif
+
+void executeControlLoopTasks( void )
+{
+    computeIMU(&currentProfile->accelerometerTrims, masterConfig.mixerConfiguration);
+
+    // Measure loop rate just after reading the sensors
+    currentTime = micros();
+    cycleTime = (int32_t)(currentTime - previousTime);
+    previousTime = currentTime;
+
+    annexCode();
+#if defined(BARO) || defined(SONAR)
+    haveProcessedAnnexCodeOnce = true;
+#endif
+
+#ifdef AUTOTUNE
+    updateAutotuneState();
+#endif
+
+#ifdef MAG
+    if (sensors(SENSOR_MAG)) {
+    	updateMagHold();
+    }
+#endif
+
+#if defined(BARO) || defined(SONAR)
+    if (sensors(SENSOR_BARO) || sensors(SENSOR_SONAR)) {
+        if (FLIGHT_MODE(BARO_MODE) || FLIGHT_MODE(SONAR_MODE)) {
+            applyAltHold();
+        }
+    }
+#endif
+
+    if (currentProfile->throttle_correction_value && (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE))) {
+        rcCommand[THROTTLE] += calculateThrottleAngleCorrection(currentProfile->throttle_correction_value);
+    }
+
+#ifdef GPS
+    if (sensors(SENSOR_GPS)) {
+        if ((FLIGHT_MODE(GPS_HOME_MODE) || FLIGHT_MODE(GPS_HOLD_MODE)) && STATE(GPS_FIX_HOME)) {
+            updateGpsStateForHomeAndHoldMode();
+        }
+    }
+#endif
+
+    // PID - note this is function pointer set by setPIDController()
+    pid_controller(
+        &currentProfile->pidProfile,
+        &currentProfile->controlRateConfig,
+        masterConfig.max_angle_inclination,
+        &currentProfile->accelerometerTrims
+    );
+
+    mixTable();
+    writeServos();
+    writeMotors();
 }
 
 void loop(void)
 {
 #if !defined(CLEANFLIGHT_COOS)
     static uint32_t loopTime;
-#endif
-
-#if defined(BARO) || defined(SONAR)
-    static bool haveProcessedAnnexCodeOnce = false;
 #endif
 
     updateRx();
@@ -616,71 +673,15 @@ void loop(void)
         executePeriodicTasks();
     }
 
-#if defined(CLEANFLIGHT_COOS)
-	if ( CoAcceptSingleFlag( mainLoopFlagID ) == E_OK )
-#else
+#if !defined(CLEANFLIGHT_COOS)
     currentTime = micros();
     if (masterConfig.looptime == 0 || (int32_t)(currentTime - loopTime) >= 0)
-#endif
 	{
-#if !defined(CLEANFLIGHT_COOS)
         loopTime = currentTime + masterConfig.looptime;
-#endif
 
-        computeIMU(&currentProfile->accelerometerTrims, masterConfig.mixerConfiguration);
-
-        // Measure loop rate just after reading the sensors
-        currentTime = micros();
-        cycleTime = (int32_t)(currentTime - previousTime);
-        previousTime = currentTime;
-
-        annexCode();
-#if defined(BARO) || defined(SONAR)
-        haveProcessedAnnexCodeOnce = true;
-#endif
-
-#ifdef AUTOTUNE
-        updateAutotuneState();
-#endif
-
-#ifdef MAG
-        if (sensors(SENSOR_MAG)) {
-        	updateMagHold();
-        }
-#endif
-
-#if defined(BARO) || defined(SONAR)
-        if (sensors(SENSOR_BARO) || sensors(SENSOR_SONAR)) {
-            if (FLIGHT_MODE(BARO_MODE) || FLIGHT_MODE(SONAR_MODE)) {
-                applyAltHold();
-            }
-        }
-#endif
-
-        if (currentProfile->throttle_correction_value && (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE))) {
-            rcCommand[THROTTLE] += calculateThrottleAngleCorrection(currentProfile->throttle_correction_value);
-        }
-
-#ifdef GPS
-        if (sensors(SENSOR_GPS)) {
-            if ((FLIGHT_MODE(GPS_HOME_MODE) || FLIGHT_MODE(GPS_HOLD_MODE)) && STATE(GPS_FIX_HOME)) {
-                updateGpsStateForHomeAndHoldMode();
-            }
-        }
-#endif
-
-        // PID - note this is function pointer set by setPIDController()
-        pid_controller(
-            &currentProfile->pidProfile,
-            &currentProfile->controlRateConfig,
-            masterConfig.max_angle_inclination,
-            &currentProfile->accelerometerTrims
-        );
-
-        mixTable();
-        writeServos();
-        writeMotors();
+		executeControlLoopTasks();
     }
+#endif
 
 #ifdef TELEMETRY
     if (!cliMode && feature(FEATURE_TELEMETRY)) {
